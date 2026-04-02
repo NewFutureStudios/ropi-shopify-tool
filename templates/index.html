@@ -189,6 +189,56 @@
     .empty-state p { font-size: 14px; line-height: 1.6; }
 
     .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+    /* ── Tooltips ── */
+    .label-row {
+      display: flex; align-items: center; gap: 6px; margin-bottom: 6px;
+    }
+    .label-row label { margin-bottom: 0; }
+
+    .info-icon {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text-muted); font-size: 10px; font-weight: 700;
+      cursor: pointer; flex-shrink: 0; transition: all 0.15s;
+      font-style: normal; line-height: 1; user-select: none;
+    }
+    .info-icon:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+    .tooltip-box {
+      position: fixed; z-index: 9999;
+      max-width: 280px;
+      background: #1e2235;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+      font-size: 13px; line-height: 1.55; color: var(--text);
+      pointer-events: none;
+      opacity: 0; transform: translateY(4px);
+      transition: opacity 0.15s, transform 0.15s;
+    }
+    .tooltip-box.visible { opacity: 1; transform: translateY(0); }
+    .tooltip-box strong { color: var(--accent2); display: block; margin-bottom: 5px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .tooltip-box a { color: var(--accent2); text-decoration: underline; pointer-events: all; }
+    .tooltip-box .tip-step {
+      display: flex; gap: 8px; margin-top: 7px; font-size: 12px; color: var(--text-muted);
+    }
+    .tip-step-num {
+      width: 18px; height: 18px; border-radius: 50%;
+      background: rgba(92,110,248,0.2); color: var(--accent2);
+      font-size: 11px; font-weight: 700; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .stat-box { position: relative; cursor: default; }
+    .stat-box .info-icon { position: absolute; top: 8px; right: 8px; }
+
+    .section-label-row {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
+    }
+    .section-label-row .card-title { margin-bottom: 0; }
   </style>
 </head>
 <body>
@@ -205,27 +255,42 @@
   <!-- Sidebar -->
   <aside>
     <div class="card">
-      <div class="card-title">Instellingen</div>
+      <div class="section-label-row">
+        <div class="card-title">Instellingen</div>
+        <i class="info-icon" data-tip="wat-is-dit">i</i>
+      </div>
 
       <div id="cred-status" class="cred-status" style="display:none"></div>
 
       <div class="field">
-        <label>Shopify Store URL</label>
+        <div class="label-row">
+          <label>Shopify Store URL</label>
+          <i class="info-icon" data-tip="shopify-url">i</i>
+        </div>
         <input type="text" id="store_url" placeholder="jouw-shop.myshopify.com" value="{{ defaults.store_url }}" />
       </div>
       <div class="field">
-        <label>Shopify Access Token</label>
+        <div class="label-row">
+          <label>Shopify Access Token</label>
+          <i class="info-icon" data-tip="shopify-token">i</i>
+        </div>
         <input type="password" id="token" placeholder="shpat_xxxxxxxxxxxx" value="{{ defaults.token }}" />
       </div>
 
       <hr class="divider" />
 
       <div class="field">
-        <label>Bol.com Client ID</label>
+        <div class="label-row">
+          <label>Bol.com Client ID</label>
+          <i class="info-icon" data-tip="bol-id">i</i>
+        </div>
         <input type="text" id="bol_client_id" placeholder="xxxxxxxx-xxxx-xxxx-xxxx" value="{{ defaults.bol_client_id }}" />
       </div>
       <div class="field">
-        <label>Bol.com Client Secret</label>
+        <div class="label-row">
+          <label>Bol.com Client Secret</label>
+          <i class="info-icon" data-tip="bol-secret">i</i>
+        </div>
         <input type="password" id="bol_client_secret" placeholder="••••••••••••••••" value="{{ defaults.bol_client_secret }}" />
       </div>
 
@@ -234,8 +299,8 @@
       <hr class="divider" />
 
       <div class="toggle-row">
-        <div class="toggle-btn" id="toggle-test"   onclick="toggleOption('test')">⚡ Test (3 prod.)</div>
-        <div class="toggle-btn" id="toggle-dryrun" onclick="toggleOption('dryrun')">👁 Dry run</div>
+        <div class="toggle-btn" id="toggle-test"   onclick="toggleOption('test')">⚡ Test (3 prod.) <i class="info-icon" data-tip="test-mode" style="vertical-align:middle;margin-left:2px">i</i></div>
+        <div class="toggle-btn" id="toggle-dryrun" onclick="toggleOption('dryrun')">👁 Dry run <i class="info-icon" data-tip="dry-run" style="vertical-align:middle;margin-left:2px">i</i></div>
       </div>
 
       <button class="btn btn-primary" id="start-btn" onclick="startSync()">Sync starten</button>
@@ -245,10 +310,10 @@
   <!-- Dashboard -->
   <section>
     <div class="stats-row">
-      <div class="stat-box stat-added">   <div class="stat-num" id="s-added">—</div>   <div class="stat-label">Toegevoegd</div></div>
-      <div class="stat-box stat-skipped"> <div class="stat-num" id="s-skipped">—</div> <div class="stat-label">Al aanwezig</div></div>
-      <div class="stat-box stat-nobol">   <div class="stat-num" id="s-nobol">—</div>   <div class="stat-label">Niet op Bol</div></div>
-      <div class="stat-box stat-errors">  <div class="stat-num" id="s-errors">—</div>  <div class="stat-label">Fouten</div></div>
+      <div class="stat-box stat-added">   <i class="info-icon" data-tip="stat-added">i</i>   <div class="stat-num" id="s-added">—</div>   <div class="stat-label">Toegevoegd</div></div>
+      <div class="stat-box stat-skipped"> <i class="info-icon" data-tip="stat-skipped">i</i> <div class="stat-num" id="s-skipped">—</div> <div class="stat-label">Al aanwezig</div></div>
+      <div class="stat-box stat-nobol">   <i class="info-icon" data-tip="stat-nobol">i</i>   <div class="stat-num" id="s-nobol">—</div>   <div class="stat-label">Niet op Bol</div></div>
+      <div class="stat-box stat-errors">  <i class="info-icon" data-tip="stat-errors">i</i>  <div class="stat-num" id="s-errors">—</div>  <div class="stat-label">Fouten</div></div>
     </div>
 
     <div id="complete-banner" style="display:none" class="complete-banner">
@@ -465,6 +530,128 @@
   function escHtml(s) {
     return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
+
+  // ── Tooltips ──────────────────────────────────────────────────────────────
+  const TIPS = {
+    'wat-is-dit': `
+      <strong>Wat doet deze tool?</strong>
+      Deze tool haalt automatisch alle productafbeeldingen op van Bol.com en plaatst ze terug in je Shopify winkel.
+      De koppeling werkt via de EAN-barcode: elk product heeft dezelfde EAN op beide platformen.
+      <div class="tip-step"><div class="tip-step-num">1</div><div>Vul je Shopify en Bol.com gegevens in</div></div>
+      <div class="tip-step"><div class="tip-step-num">2</div><div>Klik op "Verbinding testen"</div></div>
+      <div class="tip-step"><div class="tip-step-num">3</div><div>Zet Test + Dry run aan voor een veilige proefrun</div></div>
+      <div class="tip-step"><div class="tip-step-num">4</div><div>Klik op "Sync starten" om te beginnen</div></div>`,
+
+    'shopify-url': `
+      <strong>Shopify Store URL</strong>
+      Dit is het adres van jouw Shopify winkel. Je vindt dit altijd in de adresbalk als je bent ingelogd in Shopify Admin.
+      <div class="tip-step"><div class="tip-step-num">1</div><div>Log in op <em>admin.shopify.com</em></div></div>
+      <div class="tip-step"><div class="tip-step-num">2</div><div>Kijk in de adresbalk: <em>jouw-winkel.myshopify.com</em></div></div>
+      Vul alleen het gedeelte in vóór de slash, zonder "https://".`,
+
+    'shopify-token': `
+      <strong>Shopify Access Token</strong>
+      Dit is een unieke sleutel waarmee de tool toegang krijgt tot jouw Shopify winkel. Eenmalig aanmaken.
+      <div class="tip-step"><div class="tip-step-num">1</div><div>Ga naar Shopify Admin → <em>Instellingen</em></div></div>
+      <div class="tip-step"><div class="tip-step-num">2</div><div>Klik op <em>Apps en verkoopkanalen</em></div></div>
+      <div class="tip-step"><div class="tip-step-num">3</div><div>Klik op <em>Apps ontwikkelen</em> → <em>Aangepaste app maken</em></div></div>
+      <div class="tip-step"><div class="tip-step-num">4</div><div>Geef de app rechten: <em>read_products</em> en <em>write_products</em></div></div>
+      <div class="tip-step"><div class="tip-step-num">5</div><div>Klik op <em>Installeren</em> → kopieer het token</div></div>
+      Het token begint altijd met <em>shpat_</em>.`,
+
+    'bol-id': `
+      <strong>Bol.com Client ID</strong>
+      Dit is jouw unieke identificatie voor de Bol.com API. Gratis aan te maken via het Retailer Dashboard.
+      <div class="tip-step"><div class="tip-step-num">1</div><div>Log in op <em>partner.bol.com</em></div></div>
+      <div class="tip-step"><div class="tip-step-num">2</div><div>Ga naar <em>Instellingen → API-toegang</em></div></div>
+      <div class="tip-step"><div class="tip-step-num">3</div><div>Klik op <em>Nieuw koppel aanmaken</em></div></div>
+      <div class="tip-step"><div class="tip-step-num">4</div><div>Kopieer de <em>Client ID</em></div></div>`,
+
+    'bol-secret': `
+      <strong>Bol.com Client Secret</strong>
+      Dit is het bijbehorende wachtwoord voor de Bol.com API. Maak dit aan op dezelfde plek als de Client ID.
+      <div class="tip-step"><div class="tip-step-num">1</div><div>Log in op <em>partner.bol.com</em></div></div>
+      <div class="tip-step"><div class="tip-step-num">2</div><div>Ga naar <em>Instellingen → API-toegang</em></div></div>
+      <div class="tip-step"><div class="tip-step-num">3</div><div>Kopieer de <em>Client Secret</em> (alleen zichtbaar direct na aanmaken)</div></div>
+      ⚠️ Bewaar dit op een veilige plek — Bol toont het maar één keer.`,
+
+    'test-mode': `
+      <strong>Test modus</strong>
+      Verwerkt alleen de eerste 3 producten uit je winkel.
+      Handig om te controleren of alles goed werkt voordat je de hele winkel synchroniseert.
+      Zet dit <em>altijd eerst aan</em> bij een eerste gebruik.`,
+
+    'dry-run': `
+      <strong>Dry run (proefmodus)</strong>
+      De tool doet alsof hij afbeeldingen toevoegt, maar slaat in werkelijkheid niets op.
+      Zo zie je precies wat er zou gebeuren, zonder dat er iets verandert in je Shopify winkel.
+      Combineer dit met Test modus voor de veiligste proefrun.`,
+
+    'stat-added': `
+      <strong>Toegevoegd</strong>
+      Het aantal afbeeldingen dat succesvol is overgezet van Bol.com naar Shopify. Deze afbeeldingen staan nu in je Shopify producten.`,
+
+    'stat-skipped': `
+      <strong>Al aanwezig</strong>
+      Afbeeldingen die al in Shopify stonden en dus niet opnieuw zijn toegevoegd. De tool voorkomt zo dubbele foto's.`,
+
+    'stat-nobol': `
+      <strong>Niet op Bol</strong>
+      Producten waarvoor geen afbeeldingen gevonden zijn op Bol.com, of producten zonder EAN-barcode in Shopify.
+      Dit kan komen doordat het product niet op Bol staat of de EAN ontbreekt.`,
+
+    'stat-errors': `
+      <strong>Fouten</strong>
+      Producten waarbij iets mis is gegaan, bijvoorbeeld door een verbindingsprobleem. Probeer de sync opnieuw als dit meer dan 0 is.`,
+  };
+
+  const tooltip = document.createElement('div');
+  tooltip.className = 'tooltip-box';
+  document.body.appendChild(tooltip);
+
+  let activeIcon = null;
+
+  function showTip(icon) {
+    const key = icon.dataset.tip;
+    if (!TIPS[key]) return;
+    tooltip.innerHTML = TIPS[key];
+    tooltip.classList.add('visible');
+    activeIcon = icon;
+    positionTip(icon);
+  }
+
+  function hideTip() {
+    tooltip.classList.remove('visible');
+    activeIcon = null;
+  }
+
+  function positionTip(icon) {
+    const rect = icon.getBoundingClientRect();
+    const tW = 280, tH = tooltip.offsetHeight || 160;
+    const margin = 10;
+    let left = rect.right + margin;
+    let top  = rect.top + rect.height / 2 - tH / 2;
+
+    // Flip left als te ver naar rechts
+    if (left + tW > window.innerWidth - margin) left = rect.left - tW - margin;
+    // Clamp verticaal
+    top = Math.max(margin, Math.min(top, window.innerHeight - tH - margin));
+
+    tooltip.style.left = left + 'px';
+    tooltip.style.top  = top  + 'px';
+  }
+
+  document.querySelectorAll('.info-icon').forEach(icon => {
+    icon.addEventListener('mouseenter', () => showTip(icon));
+    icon.addEventListener('mouseleave', hideTip);
+    icon.addEventListener('click', e => {
+      e.stopPropagation();
+      if (activeIcon === icon) { hideTip(); } else { showTip(icon); }
+    });
+  });
+
+  document.addEventListener('click', hideTip);
+  window.addEventListener('scroll', () => { if (activeIcon) positionTip(activeIcon); }, true);
 </script>
 </body>
 </html>
