@@ -8,229 +8,354 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #0f1117;
-      --surface: #1a1d27;
-      --surface2: #22263a;
-      --border: #2d3150;
-      --accent: #5c6ef8;
-      --accent2: #7c8dff;
-      --green: #22c55e;
-      --yellow: #f59e0b;
-      --red: #ef4444;
-      --gray: #6b7280;
-      --text: #e2e4f0;
-      --text-muted: #8b90a8;
-      --radius: 12px;
-      --shadow: 0 4px 24px rgba(0,0,0,0.4);
+      --bg:        #0C0A0A;
+      --surface:   #141110;
+      --surface2:  #1C1918;
+      --surface3:  #231F1E;
+      --border:    #2A2422;
+      --border2:   #332E2C;
+      --accent:    #E8443B;
+      --accent2:   #FF6B64;
+      --accent-dim: rgba(232,68,59,0.12);
+      --accent-glow: rgba(232,68,59,0.25);
+      --green:     #22c55e;
+      --yellow:    #f59e0b;
+      --red-err:   #ef4444;
+      --gray:      #6b7280;
+      --text:      #F0ECEB;
+      --text-muted:#8A8280;
+      --radius:    14px;
+      --shadow:    0 4px 32px rgba(0,0,0,0.5);
     }
 
-    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+    }
 
+    /* ── Header ── */
     header {
-      background: linear-gradient(135deg, #1a1d27 0%, #12152a 100%);
+      background: var(--surface);
       border-bottom: 1px solid var(--border);
-      padding: 20px 32px; display: flex; align-items: center; gap: 16px;
+      padding: 18px 36px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(12px);
     }
     .logo {
-      width: 40px; height: 40px;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      border-radius: 10px; display: flex; align-items: center; justify-content: center;
-      font-size: 18px; font-weight: 800; color: #fff;
-      box-shadow: 0 0 20px rgba(92,110,248,0.4);
+      width: 38px; height: 38px;
+      background: var(--accent);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px; font-weight: 900; color: #fff;
+      box-shadow: 0 0 24px var(--accent-glow);
+      letter-spacing: -0.5px;
     }
-    header h1 { font-size: 18px; font-weight: 700; }
-    header p  { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+    .header-text h1 { font-size: 16px; font-weight: 700; letter-spacing: -0.2px; }
+    .header-text p  { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+    .header-pill {
+      margin-left: auto;
+      background: var(--accent-dim);
+      border: 1px solid rgba(232,68,59,0.3);
+      color: var(--accent2);
+      font-size: 11px; font-weight: 600;
+      padding: 4px 10px; border-radius: 20px;
+      letter-spacing: 0.03em;
+    }
 
+    /* ── Layout ── */
     main {
-      max-width: 1100px; margin: 0 auto; padding: 32px 24px;
-      display: grid; grid-template-columns: 360px 1fr; gap: 24px; align-items: start;
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 28px 24px;
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 20px;
+      align-items: start;
     }
-    @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+    @media (max-width: 820px) { main { grid-template-columns: 1fr; } }
 
-    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow); }
-    .card-title { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 20px; }
+    /* ── Cards ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px;
+      box-shadow: var(--shadow);
+    }
+    .card-title {
+      font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.1em;
+      color: var(--text-muted); margin-bottom: 18px;
+    }
+    .section-label-row { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; }
+    .section-label-row .card-title { margin-bottom: 0; }
 
-    .field { margin-bottom: 16px; }
-    label { display: block; font-size: 13px; font-weight: 500; color: var(--text-muted); margin-bottom: 6px; }
+    /* ── Form ── */
+    .field { margin-bottom: 14px; }
+    .label-row { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
+    .label-row label, label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 5px; letter-spacing: 0.02em; }
+    .label-row label { margin-bottom: 0; }
+
     input[type="text"], input[type="password"] {
-      width: 100%; background: var(--surface2); border: 1px solid var(--border);
-      border-radius: 8px; padding: 10px 14px; font-size: 14px; color: var(--text);
-      outline: none; transition: border-color 0.2s;
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: 9px;
+      padding: 10px 13px;
+      font-size: 13.5px; color: var(--text);
+      outline: none; transition: border-color 0.2s, box-shadow 0.2s;
     }
-    input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(92,110,248,0.15); }
-    input::placeholder { color: var(--text-muted); opacity: 0.6; }
+    input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+    input::placeholder { color: var(--text-muted); opacity: 0.45; }
 
-    .toggle-row { display: flex; gap: 12px; margin-bottom: 20px; }
+    /* ── Toggles ── */
+    .toggle-row { display: flex; gap: 10px; margin-bottom: 18px; }
     .toggle-btn {
-      flex: 1; padding: 9px 10px; border-radius: 8px;
-      border: 1px solid var(--border); background: var(--surface2);
-      color: var(--text-muted); font-size: 13px; font-weight: 500;
-      cursor: pointer; text-align: center; transition: all 0.2s; user-select: none;
+      flex: 1; padding: 9px 10px; border-radius: 9px;
+      border: 1px solid var(--border2); background: var(--surface2);
+      color: var(--text-muted); font-size: 12.5px; font-weight: 600;
+      cursor: pointer; text-align: center; transition: all 0.18s; user-select: none;
       display: flex; align-items: center; justify-content: center; gap: 5px;
     }
-    .toggle-btn.active { background: rgba(92,110,248,0.15); border-color: var(--accent); color: var(--accent2); }
+    .toggle-btn:hover { border-color: var(--accent); color: var(--text); }
+    .toggle-btn.active {
+      background: var(--accent-dim);
+      border-color: rgba(232,68,59,0.5);
+      color: var(--accent2);
+    }
 
-    .btn { width: 100%; padding: 13px; border-radius: 9px; border: none; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-    .btn-primary { background: linear-gradient(135deg, var(--accent), #7048e8); color: #fff; box-shadow: 0 4px 16px rgba(92,110,248,0.35); }
-    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(92,110,248,0.5); }
+    /* ── Buttons ── */
+    .btn { width: 100%; padding: 12px; border-radius: 10px; border: none; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.18s; letter-spacing: 0.01em; }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 4px 20px var(--accent-glow);
+    }
+    .btn-primary:hover { background: var(--accent2); box-shadow: 0 6px 28px rgba(232,68,59,0.45); transform: translateY(-1px); }
     .btn-primary:active { transform: translateY(0); }
-    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-    .btn-secondary { background: var(--surface2); border: 1px solid var(--border); color: var(--text-muted); font-size: 13px; padding: 10px; margin-top: 10px; }
+    .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
+    .btn-secondary {
+      background: var(--surface2); border: 1px solid var(--border2);
+      color: var(--text-muted); font-size: 12.5px; padding: 9px; margin-top: 10px;
+    }
     .btn-secondary:hover { border-color: var(--accent); color: var(--accent2); }
-    .btn-resume {
-      width: 100%; padding: 11px; border-radius: 9px; border: 1px solid rgba(245,158,11,0.4);
-      background: rgba(245,158,11,0.08); color: var(--yellow); font-size: 14px; font-weight: 600;
-      cursor: pointer; margin-bottom: 10px; transition: all 0.2s;
-    }
-    .btn-resume:hover { background: rgba(245,158,11,0.15); }
 
+    /* ── Resume banner ── */
     .resume-banner {
-      background: rgba(245,158,11,0.07); border: 1px solid rgba(245,158,11,0.3);
-      border-radius: 10px; padding: 12px 14px; margin-bottom: 16px; font-size: 13px;
-      color: var(--yellow); display: none;
+      background: rgba(245,158,11,0.06);
+      border: 1px solid rgba(245,158,11,0.25);
+      border-radius: 10px; padding: 12px 14px; margin-bottom: 14px;
+      font-size: 12.5px; color: var(--yellow); display: none;
     }
-    .resume-banner p { margin-bottom: 8px; line-height: 1.4; }
-    .resume-banner .resume-actions { display: flex; gap: 8px; }
-    .resume-actions button {
-      flex: 1; padding: 7px; border-radius: 7px; font-size: 12px; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s;
-    }
-    .btn-do-resume { background: rgba(245,158,11,0.2); color: var(--yellow); border: 1px solid rgba(245,158,11,0.4) !important; }
-    .btn-do-resume:hover { background: rgba(245,158,11,0.35); }
-    .btn-fresh { background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border) !important; }
+    .resume-banner p { margin-bottom: 8px; line-height: 1.45; }
+    .resume-actions { display: flex; gap: 8px; }
+    .resume-actions button { flex: 1; padding: 7px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; border: none; transition: all 0.18s; }
+    .btn-do-resume { background: rgba(245,158,11,0.15); color: var(--yellow); border: 1px solid rgba(245,158,11,0.3) !important; }
+    .btn-do-resume:hover { background: rgba(245,158,11,0.28); }
+    .btn-fresh { background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border2) !important; }
     .btn-fresh:hover { color: var(--text); }
 
-    .cred-status { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
-    .cred-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted); }
-    .cred-badge.ok  { border-color: rgba(34,197,94,0.4);  background: rgba(34,197,94,0.08);  color: var(--green); }
-    .cred-badge.err { border-color: rgba(239,68,68,0.4);  background: rgba(239,68,68,0.08);  color: var(--red); }
-    .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+    /* ── Credential badges ── */
+    .cred-status { display: flex; gap: 7px; margin-bottom: 18px; flex-wrap: wrap; }
+    .cred-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 600; border: 1px solid var(--border2); background: var(--surface2); color: var(--text-muted); }
+    .cred-badge.ok  { border-color: rgba(34,197,94,0.35);  background: rgba(34,197,94,0.07);  color: var(--green); }
+    .cred-badge.err { border-color: rgba(232,68,59,0.35);  background: rgba(232,68,59,0.07);  color: var(--accent2); }
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 
-    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
-    .stat-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; text-align: center; position: relative; cursor: default; }
+    /* ── Stats ── */
+    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+    .stat-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px 12px;
+      text-align: center; position: relative; cursor: default;
+      transition: border-color 0.2s;
+    }
+    .stat-box:hover { border-color: var(--border2); }
     .stat-box .info-icon { position: absolute; top: 8px; right: 8px; }
-    .stat-num { font-size: 28px; font-weight: 800; line-height: 1; margin-bottom: 4px; }
-    .stat-label { font-size: 12px; color: var(--text-muted); }
+    .stat-num { font-size: 30px; font-weight: 800; line-height: 1; margin-bottom: 5px; font-variant-numeric: tabular-nums; }
+    .stat-label { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
     .stat-added   .stat-num { color: var(--green); }
     .stat-skipped .stat-num { color: var(--accent2); }
     .stat-nobol   .stat-num { color: var(--yellow); }
-    .stat-errors  .stat-num { color: var(--red); }
+    .stat-errors  .stat-num { color: var(--red-err); }
 
-    .progress-wrap { background: var(--surface2); border-radius: 99px; height: 6px; overflow: hidden; margin-bottom: 24px; }
-    .progress-bar { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 99px; transition: width 0.4s ease; width: 0%; }
+    /* ── Progress ── */
+    .progress-wrap {
+      background: var(--surface2);
+      border-radius: 99px; height: 4px;
+      overflow: hidden; margin-bottom: 20px;
+    }
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 99px;
+      transition: width 0.5s cubic-bezier(0.4,0,0.2,1);
+      width: 0%;
+      position: relative;
+    }
+    .progress-bar::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent 60%, rgba(255,255,255,0.25));
+      animation: shimmer 1.8s infinite;
+    }
+    @keyframes shimmer { 0%,100%{opacity:0} 50%{opacity:1} }
 
-    .status-text { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; min-height: 20px; }
+    .status-text { font-size: 12.5px; color: var(--text-muted); margin-bottom: 14px; min-height: 18px; }
 
-    #product-feed { display: flex; flex-direction: column; gap: 8px; max-height: 440px; overflow-y: auto; padding-right: 4px; }
-    #product-feed::-webkit-scrollbar { width: 6px; }
-    #product-feed::-webkit-scrollbar-track { background: var(--surface2); border-radius: 3px; }
-    #product-feed::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    /* ── Product feed ── */
+    #product-feed { display: flex; flex-direction: column; gap: 7px; max-height: 420px; overflow-y: auto; padding-right: 4px; }
+    #product-feed::-webkit-scrollbar { width: 5px; }
+    #product-feed::-webkit-scrollbar-track { background: transparent; }
+    #product-feed::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
 
-    .product-row { display: flex; align-items: center; gap: 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; transition: border-color 0.3s; animation: slideIn 0.2s ease; }
-    @keyframes slideIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+    .product-row {
+      display: flex; align-items: center; gap: 11px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px; padding: 11px 13px;
+      transition: border-color 0.25s, background 0.25s;
+      animation: fadeUp 0.2s ease both;
+    }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:translateY(0); } }
+    .product-row:hover { background: var(--surface3); }
     .product-row.success   { border-color: rgba(34,197,94,0.3); }
-    .product-row.no_ean    { opacity: 0.45; }
-    .product-row.no_bol    { border-color: rgba(245,158,11,0.25); }
-    .product-row.error     { border-color: rgba(239,68,68,0.3); }
-    .product-row.resumed   { opacity: 0.55; }
+    .product-row.no_ean    { opacity: 0.4; }
+    .product-row.no_bol    { border-color: rgba(245,158,11,0.2); }
+    .product-row.error     { border-color: rgba(232,68,59,0.3); }
+    .product-row.resumed   { opacity: 0.5; }
 
-    .product-thumb { width: 44px; height: 44px; border-radius: 7px; object-fit: cover; background: var(--surface); border: 1px solid var(--border); flex-shrink: 0; }
-    .product-thumb-placeholder { width: 44px; height: 44px; border-radius: 7px; background: var(--surface); border: 1px solid var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 20px; color: var(--border); }
+    .product-thumb { width: 42px; height: 42px; border-radius: 8px; object-fit: cover; background: var(--surface); border: 1px solid var(--border); flex-shrink: 0; }
+    .product-thumb-placeholder { width: 42px; height: 42px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 18px; }
 
     .product-info { flex: 1; min-width: 0; }
-    .product-name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .product-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
-    .product-error { font-size: 11px; color: var(--red); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .product-name { font-size: 13.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .product-meta { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+    .product-error { font-size: 11px; color: var(--accent2); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-    .product-badge { flex-shrink: 0; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
-    .badge-processing { background: rgba(92,110,248,0.12); color: var(--accent2); animation: pulse 1.2s infinite; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.45} }
-    .badge-pending   { background: var(--surface); color: var(--text-muted); border: 1px solid var(--border); }
-    .badge-resumed   { background: var(--surface); color: var(--text-muted); border: 1px solid var(--border); }
-    .badge-success   { background: rgba(34,197,94,0.12);  color: var(--green); }
-    .badge-unchanged { background: var(--surface);         color: var(--text-muted); }
-    .badge-no_ean    { background: rgba(107,114,128,0.15); color: var(--gray); }
-    .badge-no_bol    { background: rgba(245,158,11,0.12);  color: var(--yellow); }
-    .badge-error     { background: rgba(239,68,68,0.12);   color: var(--red); }
+    .product-badge { flex-shrink: 0; padding: 3px 9px; border-radius: 20px; font-size: 11.5px; font-weight: 700; letter-spacing: 0.01em; }
+    .badge-processing { background: var(--accent-dim); color: var(--accent2); animation: pulse 1.2s infinite; border: 1px solid rgba(232,68,59,0.2); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    .badge-pending   { background: var(--surface); color: var(--text-muted); border: 1px solid var(--border2); }
+    .badge-resumed   { background: var(--surface); color: var(--text-muted); border: 1px solid var(--border2); }
+    .badge-success   { background: rgba(34,197,94,0.1);   color: var(--green); border: 1px solid rgba(34,197,94,0.2); }
+    .badge-unchanged { background: var(--surface);         color: var(--text-muted); border: 1px solid var(--border2); }
+    .badge-no_ean    { background: rgba(107,114,128,0.1);  color: var(--gray); border: 1px solid rgba(107,114,128,0.2); }
+    .badge-no_bol    { background: rgba(245,158,11,0.1);   color: var(--yellow); border: 1px solid rgba(245,158,11,0.2); }
+    .badge-error     { background: var(--accent-dim);       color: var(--accent2); border: 1px solid rgba(232,68,59,0.2); }
 
-    .complete-banner { background: linear-gradient(135deg, rgba(34,197,94,0.12), rgba(34,197,94,0.05)); border: 1px solid rgba(34,197,94,0.3); border-radius: 10px; padding: 16px 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; font-size: 14px; font-weight: 500; color: var(--green); }
-    .error-banner { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3); border-radius: 10px; padding: 14px 18px; margin-bottom: 20px; font-size: 13px; color: var(--red); }
+    /* ── Banners ── */
+    .complete-banner {
+      background: linear-gradient(135deg, rgba(34,197,94,0.1), rgba(34,197,94,0.04));
+      border: 1px solid rgba(34,197,94,0.25); border-radius: 11px;
+      padding: 14px 18px; margin-bottom: 18px;
+      display: flex; align-items: center; gap: 12px;
+      font-size: 13.5px; font-weight: 600; color: var(--green);
+    }
+    .error-banner {
+      background: rgba(232,68,59,0.07); border: 1px solid rgba(232,68,59,0.25);
+      border-radius: 11px; padding: 13px 16px; margin-bottom: 18px;
+      font-size: 13px; color: var(--accent2);
+    }
+    .empty-state { text-align: center; padding: 56px 20px; color: var(--text-muted); }
+    .empty-state .icon { font-size: 44px; margin-bottom: 14px; opacity: 0.3; }
+    .empty-state p { font-size: 13.5px; line-height: 1.65; }
 
-    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
-    .empty-state .icon { font-size: 48px; margin-bottom: 16px; opacity: 0.4; }
-    .empty-state p { font-size: 14px; line-height: 1.6; }
-
-    .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+    .divider { border: none; border-top: 1px solid var(--border); margin: 18px 0; }
 
     /* ── Log paneel ── */
-    .log-panel { margin-top: 16px; }
+    .log-panel { margin-top: 14px; }
     .log-toggle {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 10px 14px; background: var(--surface2); border: 1px solid var(--border);
-      border-radius: 8px; cursor: pointer; font-size: 13px; color: var(--text-muted);
-      user-select: none; transition: all 0.2s;
+      padding: 9px 13px; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; cursor: pointer; font-size: 12.5px; color: var(--text-muted);
+      user-select: none; transition: all 0.18s;
     }
     .log-toggle:hover { border-color: var(--accent); color: var(--text); }
-    .log-toggle .log-count { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 2px 8px; font-size: 11px; }
-    .log-arrow { transition: transform 0.2s; }
+    .log-toggle.open { border-color: var(--border2); border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+    .log-count { background: var(--surface3); border: 1px solid var(--border2); border-radius: 20px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
+    .log-arrow { transition: transform 0.2s; font-size: 10px; }
     .log-toggle.open .log-arrow { transform: rotate(180deg); }
     .log-entries {
-      display: none; margin-top: 8px; background: #0d1020;
-      border: 1px solid var(--border); border-radius: 8px;
-      max-height: 240px; overflow-y: auto; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px;
+      display: none;
+      background: #080706;
+      border: 1px solid var(--border2); border-top: none;
+      border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;
+      max-height: 220px; overflow-y: auto;
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 11.5px;
     }
     .log-entries.open { display: block; }
-    .log-entries::-webkit-scrollbar { width: 6px; }
+    .log-entries::-webkit-scrollbar { width: 5px; }
     .log-entries::-webkit-scrollbar-track { background: transparent; }
-    .log-entries::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-    .log-entry { display: flex; gap: 10px; padding: 6px 14px; border-bottom: 1px solid rgba(45,49,80,0.5); line-height: 1.4; }
+    .log-entries::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+    .log-entry { display: flex; gap: 10px; padding: 6px 13px; border-bottom: 1px solid rgba(42,36,34,0.6); line-height: 1.4; }
     .log-entry:last-child { border-bottom: none; }
-    .log-time { color: var(--text-muted); flex-shrink: 0; }
-    .log-icon { flex-shrink: 0; }
-    .log-msg { color: var(--text-muted); flex: 1; word-break: break-all; }
-    .log-msg.info  { color: var(--text-muted); }
-    .log-msg.ok    { color: var(--green); }
-    .log-msg.warn  { color: var(--yellow); }
-    .log-msg.err   { color: var(--red); }
-    .log-msg.dim   { color: #4a5068; }
+    .log-time { color: #443C3A; flex-shrink: 0; }
+    .log-icon { flex-shrink: 0; width: 14px; }
+    .log-msg { flex: 1; word-break: break-all; }
+    .log-msg.info  { color: #6B6360; }
+    .log-msg.ok    { color: #3D8A56; }
+    .log-msg.warn  { color: #8A6B2A; }
+    .log-msg.err   { color: var(--accent); }
+    .log-msg.dim   { color: #3A3330; }
 
     /* ── Tooltips ── */
-    .label-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
-    .label-row label { margin-bottom: 0; }
-    .section-label-row { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
-    .section-label-row .card-title { margin-bottom: 0; }
-
     .info-icon {
       display: inline-flex; align-items: center; justify-content: center;
-      width: 16px; height: 16px; border-radius: 50%;
-      background: var(--surface2); border: 1px solid var(--border);
-      color: var(--text-muted); font-size: 10px; font-weight: 700;
+      width: 15px; height: 15px; border-radius: 50%;
+      background: var(--surface3); border: 1px solid var(--border2);
+      color: var(--text-muted); font-size: 9px; font-weight: 800;
       cursor: pointer; flex-shrink: 0; transition: all 0.15s;
       font-style: normal; line-height: 1; user-select: none;
     }
-    .info-icon:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .info-icon:hover { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 0 10px var(--accent-glow); }
 
     .tooltip-box {
-      position: fixed; z-index: 9999; max-width: 280px;
-      background: #1e2235; border: 1px solid var(--border); border-radius: 10px;
-      padding: 14px 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.6);
-      font-size: 13px; line-height: 1.55; color: var(--text);
-      pointer-events: none; opacity: 0; transform: translateY(4px);
-      transition: opacity 0.15s, transform 0.15s;
+      position: fixed; z-index: 9999; max-width: 272px;
+      background: #1A1614;
+      border: 1px solid var(--border2);
+      border-radius: 11px; padding: 13px 15px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.7);
+      font-size: 12.5px; line-height: 1.55; color: var(--text);
+      pointer-events: none; opacity: 0; transform: translateY(5px);
+      transition: opacity 0.14s, transform 0.14s;
     }
     .tooltip-box.visible { opacity: 1; transform: translateY(0); }
-    .tooltip-box strong { color: var(--accent2); display: block; margin-bottom: 5px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
-    .tip-step { display: flex; gap: 8px; margin-top: 7px; font-size: 12px; color: var(--text-muted); }
-    .tip-step-num { width: 18px; height: 18px; border-radius: 50%; background: rgba(92,110,248,0.2); color: var(--accent2); font-size: 11px; font-weight: 700; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    .tooltip-box strong { color: var(--accent2); display: block; margin-bottom: 5px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; }
+    .tip-step { display: flex; gap: 8px; margin-top: 6px; font-size: 11.5px; color: var(--text-muted); }
+    .tip-step-num { width: 17px; height: 17px; border-radius: 50%; background: var(--accent-dim); color: var(--accent2); font-size: 10px; font-weight: 800; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(232,68,59,0.2); }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center; padding: 22px;
+      font-size: 11.5px; color: var(--text-muted);
+      border-top: 1px solid var(--border); margin-top: 8px;
+    }
+    footer a { color: var(--accent2); text-decoration: none; font-weight: 700; transition: color 0.15s; }
+    footer a:hover { color: var(--accent); }
   </style>
 </head>
 <body>
 
 <header>
   <div class="logo">R</div>
-  <div>
+  <div class="header-text">
     <h1>Ropi Shopify Tool</h1>
     <p>Bol.com afbeeldingen synchroniseren naar Shopify</p>
   </div>
+  <div class="header-pill">v2.0</div>
 </header>
 
 <main>
@@ -281,7 +406,7 @@
         <p id="resume-text"></p>
         <div class="resume-actions">
           <button class="btn-do-resume" onclick="startSync(true)">↩ Hervatten</button>
-          <button class="btn-fresh" onclick="startSync(false)">↺ Opnieuw beginnen</button>
+          <button class="btn-fresh" onclick="startSync(false)">↺ Opnieuw</button>
         </div>
       </div>
 
@@ -299,13 +424,13 @@
     </div>
 
     <div id="complete-banner" style="display:none" class="complete-banner">
-      <span style="font-size:22px">✅</span>
+      <span style="font-size:20px">✅</span>
       <span id="complete-text">Sync voltooid!</span>
     </div>
     <div id="error-banner" style="display:none" class="error-banner"></div>
 
     <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
         <div class="card-title" style="margin-bottom:0">Producten</div>
         <div class="status-text" id="status-text" style="margin-bottom:0">Klaar om te starten</div>
       </div>
@@ -321,11 +446,12 @@
         </div>
       </div>
 
-      <!-- Log paneel -->
       <div class="log-panel">
         <div class="log-toggle" id="log-toggle" onclick="toggleLog()">
-          <span>📋 Logboek</span>
-          <div style="display:flex;align-items:center;gap:8px;">
+          <span style="display:flex;align-items:center;gap:7px;">
+            <span style="font-size:12px">📋</span> Logboek
+          </span>
+          <div style="display:flex;align-items:center;gap:7px;">
             <span class="log-count" id="log-count">0</span>
             <span class="log-arrow">▼</span>
           </div>
@@ -336,11 +462,10 @@
   </section>
 </main>
 
-<footer style="text-align:center; padding: 24px; font-size: 12px; color: var(--text-muted); border-top: 1px solid var(--border); margin-top: 8px;">
-  Powered by <a href="https://newfuturestudios.com" target="_blank" style="color: var(--accent2); text-decoration: none; font-weight: 600;">New Future Studios</a>
+<footer>
+  Powered by <a href="https://newfuturestudios.com" target="_blank">New Future Studios</a>
 </footer>
 
-<!-- Tooltip -->
 <div class="tooltip-box" id="tooltip"></div>
 
 <script>
@@ -350,16 +475,13 @@
   let running   = false;
   const stats   = { added: 0, skipped: 0, nobol: 0, errors: 0 };
 
-  // Bol.com token cache (in-memory, geldig voor duur van de sessie)
-  let bolToken      = null;
+  let bolToken       = null;
   let bolTokenExpiry = 0;
 
-  // localStorage sleutel voor hervat-functie
   function resumeKey() {
     return 'ropi_sync_' + document.getElementById('store_url').value.trim();
   }
 
-  // ── Credentials ────────────────────────────────────────────────────────────
   function creds() {
     return {
       store_url:         document.getElementById('store_url').value.trim().replace(/\/$/, ''),
@@ -393,7 +515,7 @@
     btn.textContent = 'Verbinding testen'; btn.disabled = false;
   }
 
-  // ── Bol.com token caching ──────────────────────────────────────────────────
+  // ── Token caching ──────────────────────────────────────────────────────────
   async function ensureBolToken() {
     if (bolToken && Date.now() < bolTokenExpiry - 60_000) return bolToken;
     log('info', '🔑', 'Bol.com token ophalen…');
@@ -406,7 +528,7 @@
     const data = await resp.json();
     bolToken       = data.token;
     bolTokenExpiry = Date.now() + data.expires_in * 1000;
-    log('ok', '🔑', 'Bol.com token verkregen (geldig ' + Math.round(data.expires_in / 60) + ' min)');
+    log('ok', '🔑', 'Token verkregen (geldig ' + Math.round(data.expires_in / 60) + ' min)');
     return bolToken;
   }
 
@@ -414,23 +536,17 @@
   function loadProgress() {
     try { return JSON.parse(localStorage.getItem(resumeKey()) || 'null'); } catch { return null; }
   }
-
   function saveProgress(products, completed) {
-    const total = products.length;
-    const done  = Object.keys(completed).length;
-    localStorage.setItem(resumeKey(), JSON.stringify({ total, done, completed, ts: Date.now() }));
+    localStorage.setItem(resumeKey(), JSON.stringify({ total: products.length, done: Object.keys(completed).length, completed, ts: Date.now() }));
   }
-
-  function clearProgress() {
-    localStorage.removeItem(resumeKey());
-  }
+  function clearProgress() { localStorage.removeItem(resumeKey()); }
 
   function checkResume() {
     const saved = loadProgress();
     const banner = document.getElementById('resume-banner');
     if (saved && saved.done < saved.total) {
       const pct  = Math.round(saved.done / saved.total * 100);
-      const date = new Date(saved.ts).toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+      const date = new Date(saved.ts).toLocaleString('nl-NL', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
       document.getElementById('resume-text').textContent =
         `Vorige sync (${date}) was ${pct}% klaar — ${saved.done} van ${saved.total} producten verwerkt.`;
       banner.style.display = 'block';
@@ -441,7 +557,6 @@
     }
   }
 
-  // Controleer bij laden en bij wijziging store URL
   window.addEventListener('load', checkResume);
   document.getElementById('store_url').addEventListener('input', checkResume);
 
@@ -454,28 +569,18 @@
     startBtn.disabled = true; startBtn.textContent = 'Bezig…';
     document.getElementById('resume-banner').style.display = 'none';
 
-    // Reset stats + UI
     stats.added = stats.skipped = stats.nobol = stats.errors = 0;
     updateStats();
     document.getElementById('progress-bar').style.width = '0%';
     document.getElementById('complete-banner').style.display = 'none';
     document.getElementById('error-banner').style.display   = 'none';
     clearLog();
+    if (!resume) { clearProgress(); document.getElementById('product-feed').innerHTML = ''; }
 
-    if (!resume) {
-      clearProgress();
-      document.getElementById('product-feed').innerHTML = '';
-    }
-
-    // Bol.com token (éénmalig)
     let token;
-    try {
-      token = await ensureBolToken();
-    } catch (e) {
-      showError(e.message); reset(); return;
-    }
+    try { token = await ensureBolToken(); }
+    catch (e) { showError(e.message); reset(); return; }
 
-    // Producten ophalen
     setStatus('Shopify producten ophalen…');
     log('info', '🛍', 'Shopify producten ophalen…');
     let products;
@@ -486,23 +591,19 @@
       });
       if (!resp.ok) { const e = await resp.json(); throw new Error(e.error); }
       products = (await resp.json()).products;
-    } catch (e) {
-      showError(e.message); reset(); return;
-    }
+    } catch (e) { showError(e.message); reset(); return; }
 
     log('ok', '🛍', `${products.length} producten gevonden`);
 
-    // Herstel vorige voortgang
     const saved     = resume ? (loadProgress() || {}) : {};
     const completed = saved.completed || {};
 
-    // Statistieken hernemen vanuit opgeslagen voortgang
     if (resume) {
       for (const r of Object.values(completed)) {
-        if (r.added   > 0)                     stats.added   += r.added;
-        if (r.skipped > 0)                     stats.skipped += r.skipped;
+        if (r.added   > 0)  stats.added   += r.added;
+        if (r.skipped > 0)  stats.skipped += r.skipped;
         if (r.status === 'no_bol' || r.status === 'no_ean') stats.nobol++;
-        if (r.status === 'error')              stats.errors++;
+        if (r.status === 'error') stats.errors++;
       }
       updateStats();
     }
@@ -510,17 +611,15 @@
     const total = products.length;
     setStatus(`${total} producten gevonden. Sync gestart…`);
 
-    // Render feed
     const feed = document.getElementById('product-feed');
     if (!resume) feed.innerHTML = '';
     const rowMap = {};
 
     for (const p of products) {
       if (resume && completed[p.id]) {
-        // Al eerder verwerkt — toon als afgerond
         const row = makeRow(p);
-        row.classList.add('resumed', completed[p.id].status);
         const r = completed[p.id];
+        row.classList.add('resumed', r.status);
         setBadge(row, r.status, badgeLabel(r));
         if (r.error) addErrorLine(row, r.error);
         feed.appendChild(row);
@@ -532,12 +631,11 @@
       }
     }
 
-    // Sync loop
     let processed = Object.keys(completed).length;
 
     for (let i = 0; i < products.length; i++) {
       const p = products[i];
-      if (resume && completed[p.id]) continue; // overslaan
+      if (resume && completed[p.id]) continue;
 
       const row = rowMap[p.id];
       setBadge(row, 'processing', 'Laden…');
@@ -548,18 +646,15 @@
       setStatus(`Verwerken ${processed} / ${total} — ${p.title}`);
 
       if (!p.ean) {
-        stats.nobol++;
-        updateStats();
+        stats.nobol++; updateStats();
         setBadge(row, 'no_ean', 'Geen EAN');
         row.classList.add('no_ean');
-        const r = { status: 'no_ean', added: 0, skipped: 0 };
-        completed[p.id] = r;
+        completed[p.id] = { status: 'no_ean', added: 0, skipped: 0 };
         saveProgress(products, completed);
         log('warn', '⏭', `${p.title} — geen EAN`);
         continue;
       }
 
-      // Token vernieuwen als bijna verlopen
       try { token = await ensureBolToken(); } catch(e) { /* gebruik bestaande */ }
 
       let result;
@@ -573,29 +668,21 @@
         result = { status: 'error', added: 0, skipped: 0, message: e.message };
       }
 
-      // Stats bijwerken
-      if (result.status === 'success')  { stats.added   += result.added;   stats.skipped += result.skipped; }
-      if (result.status === 'unchanged'){ stats.skipped += result.skipped; }
-      if (result.status === 'no_bol')   { stats.nobol++; }
-      if (result.status === 'error')    { stats.errors++; }
+      if (result.status === 'success')   { stats.added += result.added; stats.skipped += result.skipped; }
+      if (result.status === 'unchanged') { stats.skipped += result.skipped; }
+      if (result.status === 'no_bol')    { stats.nobol++; }
+      if (result.status === 'error')     { stats.errors++; }
       updateStats();
 
-      // UI bijwerken
       row.classList.add(result.status);
       setBadge(row, result.status, badgeLabel(result));
       if (result.message) addErrorLine(row, result.message);
 
-      // Log
-      if (result.status === 'success')
-        log('ok',   '➕', `${p.title} — +${result.added} foto${result.added !== 1 ? "'s" : ''}, ${result.skipped} al aanwezig`);
-      else if (result.status === 'unchanged')
-        log('dim',  '✓',  `${p.title} — al up-to-date (${result.skipped} foto${result.skipped !== 1 ? "'s" : ''})`);
-      else if (result.status === 'no_bol')
-        log('warn', '⚠',  `${p.title} — niet gevonden op Bol.com (EAN: ${p.ean})`);
-      else if (result.status === 'error')
-        log('err',  '✗',  `${p.title} — fout: ${result.message}`);
+      if      (result.status === 'success')   log('ok',  '➕', `${p.title} — +${result.added} foto${result.added !== 1 ? "'s" : ''}, ${result.skipped} al aanwezig`);
+      else if (result.status === 'unchanged') log('dim', '✓',  `${p.title} — al up-to-date (${result.skipped}x)`);
+      else if (result.status === 'no_bol')    log('warn','⚠',  `${p.title} — niet op Bol.com (EAN: ${p.ean})`);
+      else if (result.status === 'error')     log('err', '✗',  `${p.title} — ${result.message}`);
 
-      // Voortgang opslaan
       completed[p.id] = { status: result.status, added: result.added ?? 0, skipped: result.skipped ?? 0, error: result.message };
       saveProgress(products, completed);
     }
@@ -607,8 +694,7 @@
     document.getElementById('complete-banner').style.display = 'flex';
     document.getElementById('complete-text').textContent =
       `Sync voltooid! ${stats.added} afbeelding${stats.added !== 1 ? 'en' : ''} toegevoegd aan ${total} producten.`;
-
-    log('ok', '🎉', `Sync voltooid — ${stats.added} toegevoegd, ${stats.skipped} al aanwezig, ${stats.nobol} niet op Bol, ${stats.errors} fouten`);
+    log('ok', '🎉', `Klaar — ${stats.added} toegevoegd, ${stats.skipped} al aanwezig, ${stats.nobol} niet op Bol, ${stats.errors} fouten`);
     reset();
   }
 
@@ -619,7 +705,6 @@
     if (r.status === 'no_ean')    return 'Geen EAN';
     if (r.status === 'no_bol')    return 'Niet op Bol';
     if (r.status === 'error')     return 'Fout';
-    if (r.status === 'resumed')   return 'Eerder gedaan';
     return r.status;
   }
 
@@ -673,8 +758,7 @@
   function reset() {
     running = false;
     const btn = document.getElementById('start-btn');
-    btn.disabled = false; btn.textContent = 'Opnieuw starten';
-    btn.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Opnieuw starten'; btn.style.display = 'block';
   }
 
   function escHtml(s) {
@@ -688,7 +772,7 @@
     logCount++;
     document.getElementById('log-count').textContent = logCount;
     const entries = document.getElementById('log-entries');
-    const now = new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const now = new Date().toLocaleTimeString('nl-NL', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
     const el = document.createElement('div');
     el.className = 'log-entry';
     el.innerHTML = `<span class="log-time">${now}</span><span class="log-icon">${icon}</span><span class="log-msg ${level}">${escHtml(msg)}</span>`;
@@ -703,53 +787,51 @@
   }
 
   function toggleLog() {
-    const toggle  = document.getElementById('log-toggle');
-    const entries = document.getElementById('log-entries');
-    toggle.classList.toggle('open');
-    entries.classList.toggle('open');
+    document.getElementById('log-toggle').classList.toggle('open');
+    document.getElementById('log-entries').classList.toggle('open');
   }
 
   // ── Tooltips ───────────────────────────────────────────────────────────────
   const TIPS = {
     'wat-is-dit': `<strong>Wat doet deze tool?</strong>
-      Deze tool haalt automatisch alle productafbeeldingen op van Bol.com en plaatst ze terug in je Shopify winkel. De koppeling werkt via de EAN-barcode.
-      <div class="tip-step"><div class="tip-step-num">1</div><div>Vul je Shopify en Bol.com gegevens in</div></div>
-      <div class="tip-step"><div class="tip-step-num">2</div><div>Klik op "Verbinding testen"</div></div>
-      <div class="tip-step"><div class="tip-step-num">3</div><div>Zet Test + Dry run aan voor een veilige proefrun</div></div>
-      <div class="tip-step"><div class="tip-step-num">4</div><div>Klik op "Sync starten"</div></div>`,
+      Haalt automatisch alle productafbeeldingen op van Bol.com en plaatst ze in je Shopify winkel. Koppeling via EAN-barcode.
+      <div class="tip-step"><div class="tip-step-num">1</div><div>Vul Shopify en Bol.com gegevens in</div></div>
+      <div class="tip-step"><div class="tip-step-num">2</div><div>Klik "Verbinding testen"</div></div>
+      <div class="tip-step"><div class="tip-step-num">3</div><div>Zet Test + Dry run aan voor een proefrun</div></div>
+      <div class="tip-step"><div class="tip-step-num">4</div><div>Klik "Sync starten"</div></div>`,
     'shopify-url': `<strong>Shopify Store URL</strong>
-      Het adres van jouw Shopify winkel. Te vinden in de adresbalk als je bent ingelogd.
+      Adres van je winkel. Zichtbaar in de adresbalk van Shopify Admin.
       <div class="tip-step"><div class="tip-step-num">1</div><div>Log in op <em>admin.shopify.com</em></div></div>
       <div class="tip-step"><div class="tip-step-num">2</div><div>Kijk in de adresbalk: <em>jouw-winkel.myshopify.com</em></div></div>
-      Vul alleen het deel vóór de slash in, zonder "https://".`,
+      Zonder "https://", zonder slash.`,
     'shopify-token': `<strong>Shopify Access Token</strong>
-      Een unieke sleutel waarmee de tool toegang krijgt tot je winkel.
-      <div class="tip-step"><div class="tip-step-num">1</div><div>Shopify Admin → <em>Instellingen → Apps</em></div></div>
-      <div class="tip-step"><div class="tip-step-num">2</div><div>Klik op <em>Apps ontwikkelen → Aangepaste app maken</em></div></div>
-      <div class="tip-step"><div class="tip-step-num">3</div><div>Rechten: <em>read_products</em> en <em>write_products</em></div></div>
+      Sleutel voor toegang tot je winkel.
+      <div class="tip-step"><div class="tip-step-num">1</div><div>Admin → <em>Instellingen → Apps</em></div></div>
+      <div class="tip-step"><div class="tip-step-num">2</div><div><em>Apps ontwikkelen → Aangepaste app maken</em></div></div>
+      <div class="tip-step"><div class="tip-step-num">3</div><div>Rechten: <em>read_products + write_products</em></div></div>
       <div class="tip-step"><div class="tip-step-num">4</div><div>Installeren → token kopiëren (begint met <em>shpat_</em>)</div></div>`,
     'bol-id': `<strong>Bol.com Client ID</strong>
-      Jouw identificatie voor de Bol.com API.
+      Je identificatie voor de Bol.com API.
       <div class="tip-step"><div class="tip-step-num">1</div><div>Log in op <em>partner.bol.com</em></div></div>
-      <div class="tip-step"><div class="tip-step-num">2</div><div>Ga naar <em>Instellingen → API-toegang</em></div></div>
-      <div class="tip-step"><div class="tip-step-num">3</div><div>Klik op <em>Nieuw koppel aanmaken</em> en kopieer de Client ID</div></div>`,
+      <div class="tip-step"><div class="tip-step-num">2</div><div><em>Instellingen → API-toegang</em></div></div>
+      <div class="tip-step"><div class="tip-step-num">3</div><div><em>Nieuw koppel aanmaken</em> → Client ID kopiëren</div></div>`,
     'bol-secret': `<strong>Bol.com Client Secret</strong>
-      Het wachtwoord bij je Client ID. Alleen zichtbaar direct na aanmaken.
-      <div class="tip-step"><div class="tip-step-num">1</div><div>Zelfde plek als de Client ID</div></div>
-      <div class="tip-step"><div class="tip-step-num">2</div><div>Kopieer de Client Secret direct — Bol toont hem maar één keer</div></div>
-      ⚠️ Bewaar dit op een veilige plek.`,
+      Wachtwoord bij je Client ID. Alleen zichtbaar direct na aanmaken.
+      <div class="tip-step"><div class="tip-step-num">1</div><div>Zelfde plek als Client ID</div></div>
+      <div class="tip-step"><div class="tip-step-num">2</div><div>Kopieer direct — Bol toont hem maar één keer</div></div>
+      ⚠️ Bewaar op een veilige plek.`,
     'test-mode': `<strong>Test modus</strong>
-      Verwerkt alleen de eerste 3 producten. Zet dit aan bij een eerste gebruik om te controleren of alles werkt.`,
-    'dry-run': `<strong>Dry run (proefmodus)</strong>
-      De tool doet alsof hij werkt, maar slaat niets op in Shopify. Combineer met Test modus voor de veiligste proefrun.`,
+      Verwerkt alleen de eerste 3 producten. Altijd eerst aanzetten bij een eerste gebruik.`,
+    'dry-run': `<strong>Dry run</strong>
+      Doet alsof, maar slaat niets op in Shopify. Ideaal om te controleren vóór de echte sync.`,
     'stat-added': `<strong>Toegevoegd</strong>
-      Afbeeldingen die succesvol zijn overgezet van Bol.com naar Shopify.`,
+      Afbeeldingen succesvol overgezet van Bol.com naar Shopify.`,
     'stat-skipped': `<strong>Al aanwezig</strong>
-      Afbeeldingen die al in Shopify stonden en dus overgeslagen zijn om dubbele foto's te voorkomen.`,
+      Afbeeldingen die al in Shopify stonden — overgeslagen om dubbelen te voorkomen.`,
     'stat-nobol': `<strong>Niet op Bol</strong>
-      Producten zonder afbeeldingen op Bol.com, of producten zonder EAN-barcode in Shopify.`,
+      Producten zonder afbeeldingen op Bol.com, of producten zonder EAN in Shopify.`,
     'stat-errors': `<strong>Fouten</strong>
-      Producten waarbij iets mis ging. Bekijk het logboek voor details. Probeer de sync opnieuw als dit meer dan 0 is.`,
+      Iets ging mis. Bekijk het logboek voor details en probeer opnieuw.`,
   };
 
   const tooltipEl = document.getElementById('tooltip');
@@ -763,12 +845,10 @@
     activeIcon = icon;
     positionTip(icon);
   }
-
   function hideTip() { tooltipEl.classList.remove('visible'); activeIcon = null; }
-
   function positionTip(icon) {
     const rect = icon.getBoundingClientRect();
-    const tW = 280, tH = tooltipEl.offsetHeight || 160, m = 10;
+    const tW = 272, tH = tooltipEl.offsetHeight || 160, m = 10;
     let left = rect.right + m;
     let top  = rect.top + rect.height / 2 - tH / 2;
     if (left + tW > window.innerWidth - m) left = rect.left - tW - m;
@@ -782,7 +862,6 @@
     icon.addEventListener('mouseleave', hideTip);
     icon.addEventListener('click', e => { e.stopPropagation(); activeIcon === icon ? hideTip() : showTip(icon); });
   });
-
   document.addEventListener('click', hideTip);
   window.addEventListener('scroll', () => { if (activeIcon) positionTip(activeIcon); }, true);
 </script>
