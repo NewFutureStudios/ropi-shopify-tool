@@ -24,26 +24,17 @@
       --shadow: 0 4px 24px rgba(0,0,0,0.4);
     }
 
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      min-height: 100vh;
-    }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; }
 
     header {
       background: linear-gradient(135deg, #1a1d27 0%, #12152a 100%);
       border-bottom: 1px solid var(--border);
-      padding: 20px 32px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
+      padding: 20px 32px; display: flex; align-items: center; gap: 16px;
     }
     .logo {
       width: 40px; height: 40px;
       background: linear-gradient(135deg, var(--accent), var(--accent2));
-      border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
+      border-radius: 10px; display: flex; align-items: center; justify-content: center;
       font-size: 18px; font-weight: 800; color: #fff;
       box-shadow: 0 0 20px rgba(92,110,248,0.4);
     }
@@ -51,38 +42,19 @@
     header p  { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
 
     main {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 32px 24px;
-      display: grid;
-      grid-template-columns: 360px 1fr;
-      gap: 24px;
-      align-items: start;
+      max-width: 1100px; margin: 0 auto; padding: 32px 24px;
+      display: grid; grid-template-columns: 360px 1fr; gap: 24px; align-items: start;
     }
     @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
 
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 24px;
-      box-shadow: var(--shadow);
-    }
-    .card-title {
-      font-size: 13px; font-weight: 600;
-      text-transform: uppercase; letter-spacing: 0.08em;
-      color: var(--text-muted); margin-bottom: 20px;
-    }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow); }
+    .card-title { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 20px; }
 
     .field { margin-bottom: 16px; }
     label { display: block; font-size: 13px; font-weight: 500; color: var(--text-muted); margin-bottom: 6px; }
     input[type="text"], input[type="password"] {
-      width: 100%;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 10px 14px;
-      font-size: 14px; color: var(--text);
+      width: 100%; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 14px; font-size: 14px; color: var(--text);
       outline: none; transition: border-color 0.2s;
     }
     input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(92,110,248,0.15); }
@@ -90,39 +62,52 @@
 
     .toggle-row { display: flex; gap: 12px; margin-bottom: 20px; }
     .toggle-btn {
-      flex: 1; padding: 9px 12px; border-radius: 8px;
+      flex: 1; padding: 9px 10px; border-radius: 8px;
       border: 1px solid var(--border); background: var(--surface2);
       color: var(--text-muted); font-size: 13px; font-weight: 500;
       cursor: pointer; text-align: center; transition: all 0.2s; user-select: none;
+      display: flex; align-items: center; justify-content: center; gap: 5px;
     }
     .toggle-btn.active { background: rgba(92,110,248,0.15); border-color: var(--accent); color: var(--accent2); }
 
     .btn { width: 100%; padding: 13px; border-radius: 9px; border: none; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-    .btn-primary {
-      background: linear-gradient(135deg, var(--accent), #7048e8);
-      color: #fff; box-shadow: 0 4px 16px rgba(92,110,248,0.35);
-    }
+    .btn-primary { background: linear-gradient(135deg, var(--accent), #7048e8); color: #fff; box-shadow: 0 4px 16px rgba(92,110,248,0.35); }
     .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(92,110,248,0.5); }
     .btn-primary:active { transform: translateY(0); }
     .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-    .btn-secondary {
-      background: var(--surface2); border: 1px solid var(--border);
-      color: var(--text-muted); font-size: 13px; padding: 10px; margin-top: 10px;
-    }
+    .btn-secondary { background: var(--surface2); border: 1px solid var(--border); color: var(--text-muted); font-size: 13px; padding: 10px; margin-top: 10px; }
     .btn-secondary:hover { border-color: var(--accent); color: var(--accent2); }
+    .btn-resume {
+      width: 100%; padding: 11px; border-radius: 9px; border: 1px solid rgba(245,158,11,0.4);
+      background: rgba(245,158,11,0.08); color: var(--yellow); font-size: 14px; font-weight: 600;
+      cursor: pointer; margin-bottom: 10px; transition: all 0.2s;
+    }
+    .btn-resume:hover { background: rgba(245,158,11,0.15); }
+
+    .resume-banner {
+      background: rgba(245,158,11,0.07); border: 1px solid rgba(245,158,11,0.3);
+      border-radius: 10px; padding: 12px 14px; margin-bottom: 16px; font-size: 13px;
+      color: var(--yellow); display: none;
+    }
+    .resume-banner p { margin-bottom: 8px; line-height: 1.4; }
+    .resume-banner .resume-actions { display: flex; gap: 8px; }
+    .resume-actions button {
+      flex: 1; padding: 7px; border-radius: 7px; font-size: 12px; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s;
+    }
+    .btn-do-resume { background: rgba(245,158,11,0.2); color: var(--yellow); border: 1px solid rgba(245,158,11,0.4) !important; }
+    .btn-do-resume:hover { background: rgba(245,158,11,0.35); }
+    .btn-fresh { background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border) !important; }
+    .btn-fresh:hover { color: var(--text); }
 
     .cred-status { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
-    .cred-badge {
-      display: inline-flex; align-items: center; gap: 5px;
-      padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500;
-      border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted);
-    }
+    .cred-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted); }
     .cred-badge.ok  { border-color: rgba(34,197,94,0.4);  background: rgba(34,197,94,0.08);  color: var(--green); }
     .cred-badge.err { border-color: rgba(239,68,68,0.4);  background: rgba(239,68,68,0.08);  color: var(--red); }
     .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 
     .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
-    .stat-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; text-align: center; }
+    .stat-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; text-align: center; position: relative; cursor: default; }
+    .stat-box .info-icon { position: absolute; top: 8px; right: 8px; }
     .stat-num { font-size: 28px; font-weight: 800; line-height: 1; margin-bottom: 4px; }
     .stat-label { font-size: 12px; color: var(--text-muted); }
     .stat-added   .stat-num { color: var(--green); }
@@ -131,70 +116,88 @@
     .stat-errors  .stat-num { color: var(--red); }
 
     .progress-wrap { background: var(--surface2); border-radius: 99px; height: 6px; overflow: hidden; margin-bottom: 24px; }
-    .progress-bar {
-      height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2));
-      border-radius: 99px; transition: width 0.4s ease; width: 0%;
-    }
+    .progress-bar { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 99px; transition: width 0.4s ease; width: 0%; }
 
     .status-text { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; min-height: 20px; }
 
-    #product-feed { display: flex; flex-direction: column; gap: 8px; max-height: 520px; overflow-y: auto; padding-right: 4px; }
+    #product-feed { display: flex; flex-direction: column; gap: 8px; max-height: 440px; overflow-y: auto; padding-right: 4px; }
     #product-feed::-webkit-scrollbar { width: 6px; }
     #product-feed::-webkit-scrollbar-track { background: var(--surface2); border-radius: 3px; }
     #product-feed::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
-    .product-row {
-      display: flex; align-items: center; gap: 12px;
-      background: var(--surface2); border: 1px solid var(--border);
-      border-radius: 10px; padding: 12px 14px; transition: border-color 0.3s;
-      animation: slideIn 0.2s ease;
-    }
+    .product-row { display: flex; align-items: center; gap: 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; transition: border-color 0.3s; animation: slideIn 0.2s ease; }
     @keyframes slideIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
     .product-row.success   { border-color: rgba(34,197,94,0.3); }
     .product-row.no_ean    { opacity: 0.45; }
     .product-row.no_bol    { border-color: rgba(245,158,11,0.25); }
     .product-row.error     { border-color: rgba(239,68,68,0.3); }
+    .product-row.resumed   { opacity: 0.55; }
 
     .product-thumb { width: 44px; height: 44px; border-radius: 7px; object-fit: cover; background: var(--surface); border: 1px solid var(--border); flex-shrink: 0; }
     .product-thumb-placeholder { width: 44px; height: 44px; border-radius: 7px; background: var(--surface); border: 1px solid var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 20px; color: var(--border); }
 
     .product-info { flex: 1; min-width: 0; }
     .product-name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .product-ean  { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .product-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .product-error { font-size: 11px; color: var(--red); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
     .product-badge { flex-shrink: 0; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
     .badge-processing { background: rgba(92,110,248,0.12); color: var(--accent2); animation: pulse 1.2s infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.45} }
     .badge-pending   { background: var(--surface); color: var(--text-muted); border: 1px solid var(--border); }
+    .badge-resumed   { background: var(--surface); color: var(--text-muted); border: 1px solid var(--border); }
     .badge-success   { background: rgba(34,197,94,0.12);  color: var(--green); }
     .badge-unchanged { background: var(--surface);         color: var(--text-muted); }
     .badge-no_ean    { background: rgba(107,114,128,0.15); color: var(--gray); }
     .badge-no_bol    { background: rgba(245,158,11,0.12);  color: var(--yellow); }
     .badge-error     { background: rgba(239,68,68,0.12);   color: var(--red); }
 
-    .complete-banner {
-      background: linear-gradient(135deg, rgba(34,197,94,0.12), rgba(34,197,94,0.05));
-      border: 1px solid rgba(34,197,94,0.3); border-radius: 10px;
-      padding: 16px 20px; margin-bottom: 20px;
-      display: flex; align-items: center; gap: 12px;
-      font-size: 14px; font-weight: 500; color: var(--green);
-    }
-    .error-banner {
-      background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3);
-      border-radius: 10px; padding: 14px 18px; margin-bottom: 20px;
-      font-size: 13px; color: var(--red);
-    }
+    .complete-banner { background: linear-gradient(135deg, rgba(34,197,94,0.12), rgba(34,197,94,0.05)); border: 1px solid rgba(34,197,94,0.3); border-radius: 10px; padding: 16px 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; font-size: 14px; font-weight: 500; color: var(--green); }
+    .error-banner { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3); border-radius: 10px; padding: 14px 18px; margin-bottom: 20px; font-size: 13px; color: var(--red); }
+
     .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
     .empty-state .icon { font-size: 48px; margin-bottom: 16px; opacity: 0.4; }
     .empty-state p { font-size: 14px; line-height: 1.6; }
 
     .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
 
-    /* ── Tooltips ── */
-    .label-row {
-      display: flex; align-items: center; gap: 6px; margin-bottom: 6px;
+    /* ── Log paneel ── */
+    .log-panel { margin-top: 16px; }
+    .log-toggle {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; cursor: pointer; font-size: 13px; color: var(--text-muted);
+      user-select: none; transition: all 0.2s;
     }
+    .log-toggle:hover { border-color: var(--accent); color: var(--text); }
+    .log-toggle .log-count { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 2px 8px; font-size: 11px; }
+    .log-arrow { transition: transform 0.2s; }
+    .log-toggle.open .log-arrow { transform: rotate(180deg); }
+    .log-entries {
+      display: none; margin-top: 8px; background: #0d1020;
+      border: 1px solid var(--border); border-radius: 8px;
+      max-height: 240px; overflow-y: auto; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px;
+    }
+    .log-entries.open { display: block; }
+    .log-entries::-webkit-scrollbar { width: 6px; }
+    .log-entries::-webkit-scrollbar-track { background: transparent; }
+    .log-entries::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    .log-entry { display: flex; gap: 10px; padding: 6px 14px; border-bottom: 1px solid rgba(45,49,80,0.5); line-height: 1.4; }
+    .log-entry:last-child { border-bottom: none; }
+    .log-time { color: var(--text-muted); flex-shrink: 0; }
+    .log-icon { flex-shrink: 0; }
+    .log-msg { color: var(--text-muted); flex: 1; word-break: break-all; }
+    .log-msg.info  { color: var(--text-muted); }
+    .log-msg.ok    { color: var(--green); }
+    .log-msg.warn  { color: var(--yellow); }
+    .log-msg.err   { color: var(--red); }
+    .log-msg.dim   { color: #4a5068; }
+
+    /* ── Tooltips ── */
+    .label-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
     .label-row label { margin-bottom: 0; }
+    .section-label-row { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+    .section-label-row .card-title { margin-bottom: 0; }
 
     .info-icon {
       display: inline-flex; align-items: center; justify-content: center;
@@ -207,38 +210,17 @@
     .info-icon:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
 
     .tooltip-box {
-      position: fixed; z-index: 9999;
-      max-width: 280px;
-      background: #1e2235;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 14px 16px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+      position: fixed; z-index: 9999; max-width: 280px;
+      background: #1e2235; border: 1px solid var(--border); border-radius: 10px;
+      padding: 14px 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.6);
       font-size: 13px; line-height: 1.55; color: var(--text);
-      pointer-events: none;
-      opacity: 0; transform: translateY(4px);
+      pointer-events: none; opacity: 0; transform: translateY(4px);
       transition: opacity 0.15s, transform 0.15s;
     }
     .tooltip-box.visible { opacity: 1; transform: translateY(0); }
     .tooltip-box strong { color: var(--accent2); display: block; margin-bottom: 5px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
-    .tooltip-box a { color: var(--accent2); text-decoration: underline; pointer-events: all; }
-    .tooltip-box .tip-step {
-      display: flex; gap: 8px; margin-top: 7px; font-size: 12px; color: var(--text-muted);
-    }
-    .tip-step-num {
-      width: 18px; height: 18px; border-radius: 50%;
-      background: rgba(92,110,248,0.2); color: var(--accent2);
-      font-size: 11px; font-weight: 700; flex-shrink: 0;
-      display: flex; align-items: center; justify-content: center;
-    }
-
-    .stat-box { position: relative; cursor: default; }
-    .stat-box .info-icon { position: absolute; top: 8px; right: 8px; }
-
-    .section-label-row {
-      display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
-    }
-    .section-label-row .card-title { margin-bottom: 0; }
+    .tip-step { display: flex; gap: 8px; margin-top: 7px; font-size: 12px; color: var(--text-muted); }
+    .tip-step-num { width: 18px; height: 18px; border-radius: 50%; background: rgba(92,110,248,0.2); color: var(--accent2); font-size: 11px; font-weight: 700; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
   </style>
 </head>
 <body>
@@ -263,34 +245,22 @@
       <div id="cred-status" class="cred-status" style="display:none"></div>
 
       <div class="field">
-        <div class="label-row">
-          <label>Shopify Store URL</label>
-          <i class="info-icon" data-tip="shopify-url">i</i>
-        </div>
+        <div class="label-row"><label>Shopify Store URL</label><i class="info-icon" data-tip="shopify-url">i</i></div>
         <input type="text" id="store_url" placeholder="jouw-shop.myshopify.com" value="{{ defaults.store_url }}" />
       </div>
       <div class="field">
-        <div class="label-row">
-          <label>Shopify Access Token</label>
-          <i class="info-icon" data-tip="shopify-token">i</i>
-        </div>
+        <div class="label-row"><label>Shopify Access Token</label><i class="info-icon" data-tip="shopify-token">i</i></div>
         <input type="password" id="token" placeholder="shpat_xxxxxxxxxxxx" value="{{ defaults.token }}" />
       </div>
 
       <hr class="divider" />
 
       <div class="field">
-        <div class="label-row">
-          <label>Bol.com Client ID</label>
-          <i class="info-icon" data-tip="bol-id">i</i>
-        </div>
+        <div class="label-row"><label>Bol.com Client ID</label><i class="info-icon" data-tip="bol-id">i</i></div>
         <input type="text" id="bol_client_id" placeholder="xxxxxxxx-xxxx-xxxx-xxxx" value="{{ defaults.bol_client_id }}" />
       </div>
       <div class="field">
-        <div class="label-row">
-          <label>Bol.com Client Secret</label>
-          <i class="info-icon" data-tip="bol-secret">i</i>
-        </div>
+        <div class="label-row"><label>Bol.com Client Secret</label><i class="info-icon" data-tip="bol-secret">i</i></div>
         <input type="password" id="bol_client_secret" placeholder="••••••••••••••••" value="{{ defaults.bol_client_secret }}" />
       </div>
 
@@ -299,11 +269,23 @@
       <hr class="divider" />
 
       <div class="toggle-row">
-        <div class="toggle-btn" id="toggle-test"   onclick="toggleOption('test')">⚡ Test (3 prod.) <i class="info-icon" data-tip="test-mode" style="vertical-align:middle;margin-left:2px">i</i></div>
-        <div class="toggle-btn" id="toggle-dryrun" onclick="toggleOption('dryrun')">👁 Dry run <i class="info-icon" data-tip="dry-run" style="vertical-align:middle;margin-left:2px">i</i></div>
+        <div class="toggle-btn" id="toggle-test" onclick="toggleOption('test')">
+          ⚡ Test (3 prod.) <i class="info-icon" data-tip="test-mode">i</i>
+        </div>
+        <div class="toggle-btn" id="toggle-dryrun" onclick="toggleOption('dryrun')">
+          👁 Dry run <i class="info-icon" data-tip="dry-run">i</i>
+        </div>
       </div>
 
-      <button class="btn btn-primary" id="start-btn" onclick="startSync()">Sync starten</button>
+      <div class="resume-banner" id="resume-banner">
+        <p id="resume-text"></p>
+        <div class="resume-actions">
+          <button class="btn-do-resume" onclick="startSync(true)">↩ Hervatten</button>
+          <button class="btn-fresh" onclick="startSync(false)">↺ Opnieuw beginnen</button>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="start-btn" onclick="startSync(false)">Sync starten</button>
     </div>
   </aside>
 
@@ -338,16 +320,46 @@
           <p>Start de sync om afbeeldingen<br>van Bol.com naar Shopify te kopiëren.</p>
         </div>
       </div>
+
+      <!-- Log paneel -->
+      <div class="log-panel">
+        <div class="log-toggle" id="log-toggle" onclick="toggleLog()">
+          <span>📋 Logboek</span>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="log-count" id="log-count">0</span>
+            <span class="log-arrow">▼</span>
+          </div>
+        </div>
+        <div class="log-entries" id="log-entries"></div>
+      </div>
     </div>
   </section>
 </main>
 
-<script>
-  let testMode = false;
-  let dryRun   = false;
-  let running  = false;
-  const stats  = { added: 0, skipped: 0, nobol: 0, errors: 0 };
+<footer style="text-align:center; padding: 24px; font-size: 12px; color: var(--text-muted); border-top: 1px solid var(--border); margin-top: 8px;">
+  Powered by <a href="https://newfuturestudios.com" target="_blank" style="color: var(--accent2); text-decoration: none; font-weight: 600;">New Future Studios</a>
+</footer>
 
+<!-- Tooltip -->
+<div class="tooltip-box" id="tooltip"></div>
+
+<script>
+  // ── State ──────────────────────────────────────────────────────────────────
+  let testMode  = false;
+  let dryRun    = false;
+  let running   = false;
+  const stats   = { added: 0, skipped: 0, nobol: 0, errors: 0 };
+
+  // Bol.com token cache (in-memory, geldig voor duur van de sessie)
+  let bolToken      = null;
+  let bolTokenExpiry = 0;
+
+  // localStorage sleutel voor hervat-functie
+  function resumeKey() {
+    return 'ropi_sync_' + document.getElementById('store_url').value.trim();
+  }
+
+  // ── Credentials ────────────────────────────────────────────────────────────
   function creds() {
     return {
       store_url:         document.getElementById('store_url').value.trim().replace(/\/$/, ''),
@@ -362,6 +374,7 @@
     if (opt === 'dryrun') { dryRun   = !dryRun;    document.getElementById('toggle-dryrun').classList.toggle('active', dryRun); }
   }
 
+  // ── Verbinding testen ──────────────────────────────────────────────────────
   async function testCredentials() {
     const btn = document.getElementById('test-btn');
     btn.textContent = 'Testen…'; btn.disabled = true;
@@ -375,27 +388,96 @@
       el.style.display = 'flex';
       el.innerHTML = `
         <div class="cred-badge ${r.shopify?.ok ? 'ok' : 'err'}"><div class="dot"></div>Shopify${r.shopify?.ok ? ': ' + r.shopify.name : ': fout'}</div>
-        <div class="cred-badge ${r.bol?.ok    ? 'ok' : 'err'}"><div class="dot"></div>Bol.com${r.bol?.ok    ? ': verbonden'         : ': fout'}</div>`;
+        <div class="cred-badge ${r.bol?.ok ? 'ok' : 'err'}"><div class="dot"></div>Bol.com${r.bol?.ok ? ': verbonden' : ': fout'}</div>`;
     } catch(e) { alert('Testfout: ' + e.message); }
     btn.textContent = 'Verbinding testen'; btn.disabled = false;
   }
 
-  async function startSync() {
+  // ── Bol.com token caching ──────────────────────────────────────────────────
+  async function ensureBolToken() {
+    if (bolToken && Date.now() < bolTokenExpiry - 60_000) return bolToken;
+    log('info', '🔑', 'Bol.com token ophalen…');
+    const c = creds();
+    const resp = await fetch('/api/bol-token', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bol_client_id: c.bol_client_id, bol_client_secret: c.bol_client_secret }),
+    });
+    if (!resp.ok) { const e = await resp.json(); throw new Error('Bol.com token: ' + e.error); }
+    const data = await resp.json();
+    bolToken       = data.token;
+    bolTokenExpiry = Date.now() + data.expires_in * 1000;
+    log('ok', '🔑', 'Bol.com token verkregen (geldig ' + Math.round(data.expires_in / 60) + ' min)');
+    return bolToken;
+  }
+
+  // ── Hervat-functie ─────────────────────────────────────────────────────────
+  function loadProgress() {
+    try { return JSON.parse(localStorage.getItem(resumeKey()) || 'null'); } catch { return null; }
+  }
+
+  function saveProgress(products, completed) {
+    const total = products.length;
+    const done  = Object.keys(completed).length;
+    localStorage.setItem(resumeKey(), JSON.stringify({ total, done, completed, ts: Date.now() }));
+  }
+
+  function clearProgress() {
+    localStorage.removeItem(resumeKey());
+  }
+
+  function checkResume() {
+    const saved = loadProgress();
+    const banner = document.getElementById('resume-banner');
+    if (saved && saved.done < saved.total) {
+      const pct  = Math.round(saved.done / saved.total * 100);
+      const date = new Date(saved.ts).toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+      document.getElementById('resume-text').textContent =
+        `Vorige sync (${date}) was ${pct}% klaar — ${saved.done} van ${saved.total} producten verwerkt.`;
+      banner.style.display = 'block';
+      document.getElementById('start-btn').style.display = 'none';
+    } else {
+      banner.style.display = 'none';
+      document.getElementById('start-btn').style.display = 'block';
+    }
+  }
+
+  // Controleer bij laden en bij wijziging store URL
+  window.addEventListener('load', checkResume);
+  document.getElementById('store_url').addEventListener('input', checkResume);
+
+  // ── Sync ───────────────────────────────────────────────────────────────────
+  async function startSync(resume = false) {
     if (running) return;
     running = true;
 
     const startBtn = document.getElementById('start-btn');
     startBtn.disabled = true; startBtn.textContent = 'Bezig…';
+    document.getElementById('resume-banner').style.display = 'none';
 
-    // Reset
+    // Reset stats + UI
     stats.added = stats.skipped = stats.nobol = stats.errors = 0;
     updateStats();
-    document.getElementById('product-feed').innerHTML = '';
     document.getElementById('progress-bar').style.width = '0%';
     document.getElementById('complete-banner').style.display = 'none';
     document.getElementById('error-banner').style.display   = 'none';
-    setStatus('Shopify producten ophalen…');
+    clearLog();
 
+    if (!resume) {
+      clearProgress();
+      document.getElementById('product-feed').innerHTML = '';
+    }
+
+    // Bol.com token (éénmalig)
+    let token;
+    try {
+      token = await ensureBolToken();
+    } catch (e) {
+      showError(e.message); reset(); return;
+    }
+
+    // Producten ophalen
+    setStatus('Shopify producten ophalen…');
+    log('info', '🛍', 'Shopify producten ophalen…');
     let products;
     try {
       const resp = await fetch('/api/products', {
@@ -403,82 +485,142 @@
         body: JSON.stringify({ ...creds(), test_mode: testMode }),
       });
       if (!resp.ok) { const e = await resp.json(); throw new Error(e.error); }
-      const data = await resp.json();
-      products = data.products;
+      products = (await resp.json()).products;
     } catch (e) {
-      showError(e.message);
-      reset(); return;
+      showError(e.message); reset(); return;
+    }
+
+    log('ok', '🛍', `${products.length} producten gevonden`);
+
+    // Herstel vorige voortgang
+    const saved     = resume ? (loadProgress() || {}) : {};
+    const completed = saved.completed || {};
+
+    // Statistieken hernemen vanuit opgeslagen voortgang
+    if (resume) {
+      for (const r of Object.values(completed)) {
+        if (r.added   > 0)                     stats.added   += r.added;
+        if (r.skipped > 0)                     stats.skipped += r.skipped;
+        if (r.status === 'no_bol' || r.status === 'no_ean') stats.nobol++;
+        if (r.status === 'error')              stats.errors++;
+      }
+      updateStats();
     }
 
     const total = products.length;
     setStatus(`${total} producten gevonden. Sync gestart…`);
 
-    // Render alle rijen alvast als "pending"
+    // Render feed
     const feed = document.getElementById('product-feed');
-    feed.innerHTML = '';
+    if (!resume) feed.innerHTML = '';
     const rowMap = {};
+
     for (const p of products) {
-      const row = makeRow(p);
-      feed.appendChild(row);
-      rowMap[p.id] = row;
+      if (resume && completed[p.id]) {
+        // Al eerder verwerkt — toon als afgerond
+        const row = makeRow(p);
+        row.classList.add('resumed', completed[p.id].status);
+        const r = completed[p.id];
+        setBadge(row, r.status, badgeLabel(r));
+        if (r.error) addErrorLine(row, r.error);
+        feed.appendChild(row);
+        rowMap[p.id] = row;
+      } else {
+        const row = makeRow(p);
+        feed.appendChild(row);
+        rowMap[p.id] = row;
+      }
     }
 
-    // Sync één voor één
+    // Sync loop
+    let processed = Object.keys(completed).length;
+
     for (let i = 0; i < products.length; i++) {
       const p = products[i];
+      if (resume && completed[p.id]) continue; // overslaan
+
       const row = rowMap[p.id];
       setBadge(row, 'processing', 'Laden…');
       row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 
-      setStatus(`Verwerken ${i + 1} / ${total} — ${p.title}`);
-      document.getElementById('progress-bar').style.width = ((i / total) * 100) + '%';
+      processed++;
+      document.getElementById('progress-bar').style.width = ((processed / total) * 100) + '%';
+      setStatus(`Verwerken ${processed} / ${total} — ${p.title}`);
 
       if (!p.ean) {
         stats.nobol++;
         updateStats();
         setBadge(row, 'no_ean', 'Geen EAN');
         row.classList.add('no_ean');
+        const r = { status: 'no_ean', added: 0, skipped: 0 };
+        completed[p.id] = r;
+        saveProgress(products, completed);
+        log('warn', '⏭', `${p.title} — geen EAN`);
         continue;
       }
 
+      // Token vernieuwen als bijna verlopen
+      try { token = await ensureBolToken(); } catch(e) { /* gebruik bestaande */ }
+
+      let result;
       try {
         const resp = await fetch('/api/sync-product', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...creds(), product_id: p.id, ean: p.ean, dry_run: dryRun }),
+          body: JSON.stringify({ ...creds(), bol_token: token, product_id: p.id, ean: p.ean, dry_run: dryRun }),
         });
-        const result = await resp.json();
-
-        row.classList.add(result.status);
-        if (result.status === 'success') {
-          stats.added += result.added;
-          setBadge(row, 'success', `+${result.added} foto${result.added !== 1 ? "'s" : ''}`);
-        } else if (result.status === 'no_bol') {
-          stats.nobol++;
-          setBadge(row, 'no_bol', 'Niet op Bol');
-        } else if (result.status === 'unchanged') {
-          stats.skipped += result.total_bol ?? 0;
-          setBadge(row, 'unchanged', 'Ongewijzigd');
-        } else if (result.status === 'error') {
-          stats.errors++;
-          setBadge(row, 'error', 'Fout');
-        }
+        result = await resp.json();
       } catch (e) {
-        stats.errors++;
-        setBadge(row, 'error', 'Fout');
-        row.classList.add('error');
+        result = { status: 'error', added: 0, skipped: 0, message: e.message };
       }
 
+      // Stats bijwerken
+      if (result.status === 'success')  { stats.added   += result.added;   stats.skipped += result.skipped; }
+      if (result.status === 'unchanged'){ stats.skipped += result.skipped; }
+      if (result.status === 'no_bol')   { stats.nobol++; }
+      if (result.status === 'error')    { stats.errors++; }
       updateStats();
+
+      // UI bijwerken
+      row.classList.add(result.status);
+      setBadge(row, result.status, badgeLabel(result));
+      if (result.message) addErrorLine(row, result.message);
+
+      // Log
+      if (result.status === 'success')
+        log('ok',   '➕', `${p.title} — +${result.added} foto${result.added !== 1 ? "'s" : ''}, ${result.skipped} al aanwezig`);
+      else if (result.status === 'unchanged')
+        log('dim',  '✓',  `${p.title} — al up-to-date (${result.skipped} foto${result.skipped !== 1 ? "'s" : ''})`);
+      else if (result.status === 'no_bol')
+        log('warn', '⚠',  `${p.title} — niet gevonden op Bol.com (EAN: ${p.ean})`);
+      else if (result.status === 'error')
+        log('err',  '✗',  `${p.title} — fout: ${result.message}`);
+
+      // Voortgang opslaan
+      completed[p.id] = { status: result.status, added: result.added ?? 0, skipped: result.skipped ?? 0, error: result.message };
+      saveProgress(products, completed);
     }
 
     document.getElementById('progress-bar').style.width = '100%';
     setStatus('Gereed');
-    const banner = document.getElementById('complete-banner');
-    banner.style.display = 'flex';
-    document.getElementById('complete-text').textContent =
-      `Sync voltooid! ${stats.added} afbeelding${stats.added !== 1 ? 'en' : ''} toegevoegd.`;
+    clearProgress();
 
+    document.getElementById('complete-banner').style.display = 'flex';
+    document.getElementById('complete-text').textContent =
+      `Sync voltooid! ${stats.added} afbeelding${stats.added !== 1 ? 'en' : ''} toegevoegd aan ${total} producten.`;
+
+    log('ok', '🎉', `Sync voltooid — ${stats.added} toegevoegd, ${stats.skipped} al aanwezig, ${stats.nobol} niet op Bol, ${stats.errors} fouten`);
     reset();
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  function badgeLabel(r) {
+    if (r.status === 'success')   return `+${r.added} foto${r.added !== 1 ? "'s" : ''}`;
+    if (r.status === 'unchanged') return 'Ongewijzigd';
+    if (r.status === 'no_ean')    return 'Geen EAN';
+    if (r.status === 'no_bol')    return 'Niet op Bol';
+    if (r.status === 'error')     return 'Fout';
+    if (r.status === 'resumed')   return 'Eerder gedaan';
+    return r.status;
   }
 
   function makeRow(p) {
@@ -492,7 +634,7 @@
       ${thumb}
       <div class="product-info">
         <div class="product-name">${escHtml(p.title)}</div>
-        <div class="product-ean">${p.ean ? 'EAN: ' + p.ean : 'Geen EAN'}</div>
+        <div class="product-meta">${p.ean ? 'EAN: ' + p.ean : 'Geen EAN'}</div>
       </div>
       <div class="product-badge badge-pending">Wacht…</div>`;
     return row;
@@ -502,6 +644,14 @@
     const b = row.querySelector('.product-badge');
     b.className = 'product-badge badge-' + status;
     b.textContent = text;
+  }
+
+  function addErrorLine(row, msg) {
+    if (!msg) return;
+    const info = row.querySelector('.product-info');
+    let el = info.querySelector('.product-error');
+    if (!el) { el = document.createElement('div'); el.className = 'product-error'; info.appendChild(el); }
+    el.textContent = '⚠ ' + msg;
   }
 
   function updateStats() {
@@ -515,139 +665,122 @@
 
   function showError(msg) {
     const el = document.getElementById('error-banner');
-    el.style.display = 'block';
-    el.textContent = '❌ ' + msg;
+    el.style.display = 'block'; el.textContent = '❌ ' + msg;
     setStatus('Gestopt door fout');
+    log('err', '✗', msg);
   }
 
   function reset() {
     running = false;
     const btn = document.getElementById('start-btn');
-    btn.disabled = false;
-    btn.textContent = 'Opnieuw starten';
+    btn.disabled = false; btn.textContent = 'Opnieuw starten';
+    btn.style.display = 'block';
   }
 
   function escHtml(s) {
     return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  // ── Tooltips ──────────────────────────────────────────────────────────────
+  // ── Log ────────────────────────────────────────────────────────────────────
+  let logCount = 0;
+
+  function log(level, icon, msg) {
+    logCount++;
+    document.getElementById('log-count').textContent = logCount;
+    const entries = document.getElementById('log-entries');
+    const now = new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const el = document.createElement('div');
+    el.className = 'log-entry';
+    el.innerHTML = `<span class="log-time">${now}</span><span class="log-icon">${icon}</span><span class="log-msg ${level}">${escHtml(msg)}</span>`;
+    entries.appendChild(el);
+    entries.scrollTop = entries.scrollHeight;
+  }
+
+  function clearLog() {
+    logCount = 0;
+    document.getElementById('log-count').textContent = '0';
+    document.getElementById('log-entries').innerHTML = '';
+  }
+
+  function toggleLog() {
+    const toggle  = document.getElementById('log-toggle');
+    const entries = document.getElementById('log-entries');
+    toggle.classList.toggle('open');
+    entries.classList.toggle('open');
+  }
+
+  // ── Tooltips ───────────────────────────────────────────────────────────────
   const TIPS = {
-    'wat-is-dit': `
-      <strong>Wat doet deze tool?</strong>
-      Deze tool haalt automatisch alle productafbeeldingen op van Bol.com en plaatst ze terug in je Shopify winkel.
-      De koppeling werkt via de EAN-barcode: elk product heeft dezelfde EAN op beide platformen.
+    'wat-is-dit': `<strong>Wat doet deze tool?</strong>
+      Deze tool haalt automatisch alle productafbeeldingen op van Bol.com en plaatst ze terug in je Shopify winkel. De koppeling werkt via de EAN-barcode.
       <div class="tip-step"><div class="tip-step-num">1</div><div>Vul je Shopify en Bol.com gegevens in</div></div>
       <div class="tip-step"><div class="tip-step-num">2</div><div>Klik op "Verbinding testen"</div></div>
       <div class="tip-step"><div class="tip-step-num">3</div><div>Zet Test + Dry run aan voor een veilige proefrun</div></div>
-      <div class="tip-step"><div class="tip-step-num">4</div><div>Klik op "Sync starten" om te beginnen</div></div>`,
-
-    'shopify-url': `
-      <strong>Shopify Store URL</strong>
-      Dit is het adres van jouw Shopify winkel. Je vindt dit altijd in de adresbalk als je bent ingelogd in Shopify Admin.
+      <div class="tip-step"><div class="tip-step-num">4</div><div>Klik op "Sync starten"</div></div>`,
+    'shopify-url': `<strong>Shopify Store URL</strong>
+      Het adres van jouw Shopify winkel. Te vinden in de adresbalk als je bent ingelogd.
       <div class="tip-step"><div class="tip-step-num">1</div><div>Log in op <em>admin.shopify.com</em></div></div>
       <div class="tip-step"><div class="tip-step-num">2</div><div>Kijk in de adresbalk: <em>jouw-winkel.myshopify.com</em></div></div>
-      Vul alleen het gedeelte in vóór de slash, zonder "https://".`,
-
-    'shopify-token': `
-      <strong>Shopify Access Token</strong>
-      Dit is een unieke sleutel waarmee de tool toegang krijgt tot jouw Shopify winkel. Eenmalig aanmaken.
-      <div class="tip-step"><div class="tip-step-num">1</div><div>Ga naar Shopify Admin → <em>Instellingen</em></div></div>
-      <div class="tip-step"><div class="tip-step-num">2</div><div>Klik op <em>Apps en verkoopkanalen</em></div></div>
-      <div class="tip-step"><div class="tip-step-num">3</div><div>Klik op <em>Apps ontwikkelen</em> → <em>Aangepaste app maken</em></div></div>
-      <div class="tip-step"><div class="tip-step-num">4</div><div>Geef de app rechten: <em>read_products</em> en <em>write_products</em></div></div>
-      <div class="tip-step"><div class="tip-step-num">5</div><div>Klik op <em>Installeren</em> → kopieer het token</div></div>
-      Het token begint altijd met <em>shpat_</em>.`,
-
-    'bol-id': `
-      <strong>Bol.com Client ID</strong>
-      Dit is jouw unieke identificatie voor de Bol.com API. Gratis aan te maken via het Retailer Dashboard.
+      Vul alleen het deel vóór de slash in, zonder "https://".`,
+    'shopify-token': `<strong>Shopify Access Token</strong>
+      Een unieke sleutel waarmee de tool toegang krijgt tot je winkel.
+      <div class="tip-step"><div class="tip-step-num">1</div><div>Shopify Admin → <em>Instellingen → Apps</em></div></div>
+      <div class="tip-step"><div class="tip-step-num">2</div><div>Klik op <em>Apps ontwikkelen → Aangepaste app maken</em></div></div>
+      <div class="tip-step"><div class="tip-step-num">3</div><div>Rechten: <em>read_products</em> en <em>write_products</em></div></div>
+      <div class="tip-step"><div class="tip-step-num">4</div><div>Installeren → token kopiëren (begint met <em>shpat_</em>)</div></div>`,
+    'bol-id': `<strong>Bol.com Client ID</strong>
+      Jouw identificatie voor de Bol.com API.
       <div class="tip-step"><div class="tip-step-num">1</div><div>Log in op <em>partner.bol.com</em></div></div>
       <div class="tip-step"><div class="tip-step-num">2</div><div>Ga naar <em>Instellingen → API-toegang</em></div></div>
-      <div class="tip-step"><div class="tip-step-num">3</div><div>Klik op <em>Nieuw koppel aanmaken</em></div></div>
-      <div class="tip-step"><div class="tip-step-num">4</div><div>Kopieer de <em>Client ID</em></div></div>`,
-
-    'bol-secret': `
-      <strong>Bol.com Client Secret</strong>
-      Dit is het bijbehorende wachtwoord voor de Bol.com API. Maak dit aan op dezelfde plek als de Client ID.
-      <div class="tip-step"><div class="tip-step-num">1</div><div>Log in op <em>partner.bol.com</em></div></div>
-      <div class="tip-step"><div class="tip-step-num">2</div><div>Ga naar <em>Instellingen → API-toegang</em></div></div>
-      <div class="tip-step"><div class="tip-step-num">3</div><div>Kopieer de <em>Client Secret</em> (alleen zichtbaar direct na aanmaken)</div></div>
-      ⚠️ Bewaar dit op een veilige plek — Bol toont het maar één keer.`,
-
-    'test-mode': `
-      <strong>Test modus</strong>
-      Verwerkt alleen de eerste 3 producten uit je winkel.
-      Handig om te controleren of alles goed werkt voordat je de hele winkel synchroniseert.
-      Zet dit <em>altijd eerst aan</em> bij een eerste gebruik.`,
-
-    'dry-run': `
-      <strong>Dry run (proefmodus)</strong>
-      De tool doet alsof hij afbeeldingen toevoegt, maar slaat in werkelijkheid niets op.
-      Zo zie je precies wat er zou gebeuren, zonder dat er iets verandert in je Shopify winkel.
-      Combineer dit met Test modus voor de veiligste proefrun.`,
-
-    'stat-added': `
-      <strong>Toegevoegd</strong>
-      Het aantal afbeeldingen dat succesvol is overgezet van Bol.com naar Shopify. Deze afbeeldingen staan nu in je Shopify producten.`,
-
-    'stat-skipped': `
-      <strong>Al aanwezig</strong>
-      Afbeeldingen die al in Shopify stonden en dus niet opnieuw zijn toegevoegd. De tool voorkomt zo dubbele foto's.`,
-
-    'stat-nobol': `
-      <strong>Niet op Bol</strong>
-      Producten waarvoor geen afbeeldingen gevonden zijn op Bol.com, of producten zonder EAN-barcode in Shopify.
-      Dit kan komen doordat het product niet op Bol staat of de EAN ontbreekt.`,
-
-    'stat-errors': `
-      <strong>Fouten</strong>
-      Producten waarbij iets mis is gegaan, bijvoorbeeld door een verbindingsprobleem. Probeer de sync opnieuw als dit meer dan 0 is.`,
+      <div class="tip-step"><div class="tip-step-num">3</div><div>Klik op <em>Nieuw koppel aanmaken</em> en kopieer de Client ID</div></div>`,
+    'bol-secret': `<strong>Bol.com Client Secret</strong>
+      Het wachtwoord bij je Client ID. Alleen zichtbaar direct na aanmaken.
+      <div class="tip-step"><div class="tip-step-num">1</div><div>Zelfde plek als de Client ID</div></div>
+      <div class="tip-step"><div class="tip-step-num">2</div><div>Kopieer de Client Secret direct — Bol toont hem maar één keer</div></div>
+      ⚠️ Bewaar dit op een veilige plek.`,
+    'test-mode': `<strong>Test modus</strong>
+      Verwerkt alleen de eerste 3 producten. Zet dit aan bij een eerste gebruik om te controleren of alles werkt.`,
+    'dry-run': `<strong>Dry run (proefmodus)</strong>
+      De tool doet alsof hij werkt, maar slaat niets op in Shopify. Combineer met Test modus voor de veiligste proefrun.`,
+    'stat-added': `<strong>Toegevoegd</strong>
+      Afbeeldingen die succesvol zijn overgezet van Bol.com naar Shopify.`,
+    'stat-skipped': `<strong>Al aanwezig</strong>
+      Afbeeldingen die al in Shopify stonden en dus overgeslagen zijn om dubbele foto's te voorkomen.`,
+    'stat-nobol': `<strong>Niet op Bol</strong>
+      Producten zonder afbeeldingen op Bol.com, of producten zonder EAN-barcode in Shopify.`,
+    'stat-errors': `<strong>Fouten</strong>
+      Producten waarbij iets mis ging. Bekijk het logboek voor details. Probeer de sync opnieuw als dit meer dan 0 is.`,
   };
 
-  const tooltip = document.createElement('div');
-  tooltip.className = 'tooltip-box';
-  document.body.appendChild(tooltip);
-
+  const tooltipEl = document.getElementById('tooltip');
   let activeIcon = null;
 
   function showTip(icon) {
     const key = icon.dataset.tip;
     if (!TIPS[key]) return;
-    tooltip.innerHTML = TIPS[key];
-    tooltip.classList.add('visible');
+    tooltipEl.innerHTML = TIPS[key];
+    tooltipEl.classList.add('visible');
     activeIcon = icon;
     positionTip(icon);
   }
 
-  function hideTip() {
-    tooltip.classList.remove('visible');
-    activeIcon = null;
-  }
+  function hideTip() { tooltipEl.classList.remove('visible'); activeIcon = null; }
 
   function positionTip(icon) {
     const rect = icon.getBoundingClientRect();
-    const tW = 280, tH = tooltip.offsetHeight || 160;
-    const margin = 10;
-    let left = rect.right + margin;
+    const tW = 280, tH = tooltipEl.offsetHeight || 160, m = 10;
+    let left = rect.right + m;
     let top  = rect.top + rect.height / 2 - tH / 2;
-
-    // Flip left als te ver naar rechts
-    if (left + tW > window.innerWidth - margin) left = rect.left - tW - margin;
-    // Clamp verticaal
-    top = Math.max(margin, Math.min(top, window.innerHeight - tH - margin));
-
-    tooltip.style.left = left + 'px';
-    tooltip.style.top  = top  + 'px';
+    if (left + tW > window.innerWidth - m) left = rect.left - tW - m;
+    top = Math.max(m, Math.min(top, window.innerHeight - tH - m));
+    tooltipEl.style.left = left + 'px';
+    tooltipEl.style.top  = top  + 'px';
   }
 
   document.querySelectorAll('.info-icon').forEach(icon => {
     icon.addEventListener('mouseenter', () => showTip(icon));
     icon.addEventListener('mouseleave', hideTip);
-    icon.addEventListener('click', e => {
-      e.stopPropagation();
-      if (activeIcon === icon) { hideTip(); } else { showTip(icon); }
-    });
+    icon.addEventListener('click', e => { e.stopPropagation(); activeIcon === icon ? hideTip() : showTip(icon); });
   });
 
   document.addEventListener('click', hideTip);

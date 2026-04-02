@@ -70,13 +70,13 @@ def get_bol_token(client_id, client_secret):
         timeout=15,
     )
     resp.raise_for_status()
-    return resp.json()["access_token"]
+    data = resp.json()
+    return data["access_token"], data.get("expires_in", 3600)
 
 
-def get_bol_images(ean, client_id, client_secret):
-    token = get_bol_token(client_id, client_secret)
+def get_bol_images(ean, bol_token):
     headers = {
-        "Authorization": f"Bearer {token}",
+        "Authorization": f"Bearer {bol_token}",
         "Accept": "application/vnd.retailer.v10+json",
     }
     resp = requests.get(
@@ -138,6 +138,21 @@ def test_credentials():
     return jsonify(results)
 
 
+@app.route("/api/bol-token", methods=["POST"])
+def api_bol_token():
+    """Haalt eenmalig een Bol.com OAuth token op. De frontend cached dit voor de hele sync."""
+    data       = request.json
+    bol_id     = data.get("bol_client_id", "").strip()
+    bol_secret = data.get("bol_client_secret", "").strip()
+    if not bol_id or not bol_secret:
+        return jsonify({"error": "Ontbrekende Bol.com credentials"}), 400
+    try:
+        token, expires_in = get_bol_token(bol_id, bol_secret)
+        return jsonify({"token": token, "expires_in": expires_in})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/products", methods=["POST"])
 def api_products():
     """Geeft alle Shopify producten terug als platte lijst."""
@@ -179,37 +194,39 @@ def api_products():
 @app.route("/api/sync-product", methods=["POST"])
 def api_sync_product():
     """Synchroniseert de afbeeldingen van één product. Stateless — credentials meegestuurd vanuit de browser."""
-    data           = request.json
-    store_url      = data.get("store_url", "").strip().rstrip("/")
-    token          = data.get("token", "").strip()
-    bol_id         = data.get("bol_client_id", "").strip()
-    bol_secret     = data.get("bol_client_secret", "").strip()
-    product_id     = data.get("product_id")
-    ean            = data.get("ean", "").strip()
-    dry_run        = data.get("dry_run", False)
+    data        = request.json
+    store_url   = data.get("store_url", "").strip().rstrip("/")
+    token       = data.get("token", "").strip()
+    bol_token   = data.get("bol_token", "").strip()   # pre-fetched door de frontend
+    product_id  = data.get("product_id")
+    ean         = data.get("ean", "").strip()
+    dry_run     = data.get("dry_run", False)
 
     if not ean:
-        return jsonify({"status": "no_ean", "added": 0})
+        return jsonify({"status": "no_ean", "added": 0, "skipped": 0})
 
     try:
-        bol_images = get_bol_images(ean, bol_id, bol_secret)
+        bol_images = get_bol_images(ean, bol_token)
     except Exception as e:
-        return jsonify({"status": "error", "added": 0, "message": str(e)}), 500
+        return jsonify({"status": "error", "added": 0, "skipped": 0, "message": str(e)}), 500
 
     if not bol_images:
-        return jsonify({"status": "no_bol", "added": 0, "total_bol": 0})
+        return jsonify({"status": "no_bol", "added": 0, "skipped": 0, "total_bol": 0})
 
     try:
         existing = get_existing_image_srcs(store_url, token, product_id)
     except Exception as e:
-        return jsonify({"status": "error", "added": 0, "message": str(e)}), 500
+        return jsonify({"status": "error", "added": 0, "skipped": 0, "message": str(e)}), 500
 
-    added = 0
+    added   = 0
+    skipped = 0
     current_count = len(existing)
+    errors  = []
 
     for img_url in bol_images:
         img_filename = img_url.split("/")[-1].split("?")[0]
         if any(img_filename in ex for ex in existing):
+            skipped += 1
             continue
         if not dry_run:
             try:
@@ -217,13 +234,22 @@ def api_sync_product():
                 if add_image_to_shopify(store_url, token, product_id, img_url, position):
                     added += 1
                 time.sleep(0.3)
-            except Exception:
-                pass
+            except Exception as e:
+                errors.append(str(e))
         else:
             added += 1
 
+    if errors and added == 0 and skipped == 0:
+        return jsonify({"status": "error", "added": 0, "skipped": 0, "message": errors[0]})
+
     status = "success" if added > 0 else "unchanged"
-    return jsonify({"status": status, "added": added, "total_bol": len(bol_images)})
+    return jsonify({
+        "status":    status,
+        "added":     added,
+        "skipped":   skipped,
+        "total_bol": len(bol_images),
+        "errors":    errors,
+    })
 
 
 if __name__ == "__main__":
