@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ropi — Shopify Afbeeldingen Sync</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2d3150;
+      --accent: #5c6ef8;
+      --accent2: #7c8dff;
+      --green: #22c55e;
+      --yellow: #f59e0b;
+      --red: #ef4444;
+      --gray: #6b7280;
+      --text: #e2e4f0;
+      --text-muted: #8b90a8;
+      --radius: 12px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.4);
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+    }
+
+    header {
+      background: linear-gradient(135deg, #1a1d27 0%, #12152a 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 20px 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .logo {
+      width: 40px; height: 40px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 800; color: #fff;
+      box-shadow: 0 0 20px rgba(92,110,248,0.4);
+    }
+    header h1 { font-size: 18px; font-weight: 700; }
+    header p  { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 24px;
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+    @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: var(--shadow);
+    }
+    .card-title {
+      font-size: 13px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-muted); margin-bottom: 20px;
+    }
+
+    .field { margin-bottom: 16px; }
+    label { display: block; font-size: 13px; font-weight: 500; color: var(--text-muted); margin-bottom: 6px; }
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 14px; color: var(--text);
+      outline: none; transition: border-color 0.2s;
+    }
+    input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(92,110,248,0.15); }
+    input::placeholder { color: var(--text-muted); opacity: 0.6; }
+
+    .toggle-row { display: flex; gap: 12px; margin-bottom: 20px; }
+    .toggle-btn {
+      flex: 1; padding: 9px 12px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--surface2);
+      color: var(--text-muted); font-size: 13px; font-weight: 500;
+      cursor: pointer; text-align: center; transition: all 0.2s; user-select: none;
+    }
+    .toggle-btn.active { background: rgba(92,110,248,0.15); border-color: var(--accent); color: var(--accent2); }
+
+    .btn { width: 100%; padding: 13px; border-radius: 9px; border: none; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #7048e8);
+      color: #fff; box-shadow: 0 4px 16px rgba(92,110,248,0.35);
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(92,110,248,0.5); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .btn-secondary {
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text-muted); font-size: 13px; padding: 10px; margin-top: 10px;
+    }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent2); }
+
+    .cred-status { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+    .cred-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500;
+      border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted);
+    }
+    .cred-badge.ok  { border-color: rgba(34,197,94,0.4);  background: rgba(34,197,94,0.08);  color: var(--green); }
+    .cred-badge.err { border-color: rgba(239,68,68,0.4);  background: rgba(239,68,68,0.08);  color: var(--red); }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+    .stat-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; text-align: center; }
+    .stat-num { font-size: 28px; font-weight: 800; line-height: 1; margin-bottom: 4px; }
+    .stat-label { font-size: 12px; color: var(--text-muted); }
+    .stat-added   .stat-num { color: var(--green); }
+    .stat-skipped .stat-num { color: var(--accent2); }
+    .stat-nobol   .stat-num { color: var(--yellow); }
+    .stat-errors  .stat-num { color: var(--red); }
+
+    .progress-wrap { background: var(--surface2); border-radius: 99px; height: 6px; overflow: hidden; margin-bottom: 24px; }
+    .progress-bar {
+      height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 99px; transition: width 0.4s ease; width: 0%;
+    }
+
+    .status-text { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; min-height: 20px; }
+
+    #product-feed { display: flex; flex-direction: column; gap: 8px; max-height: 520px; overflow-y: auto; padding-right: 4px; }
+    #product-feed::-webkit-scrollbar { width: 6px; }
+    #product-feed::-webkit-scrollbar-track { background: var(--surface2); border-radius: 3px; }
+    #product-feed::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    .product-row {
+      display: flex; align-items: center; gap: 12px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 14px; transition: border-color 0.3s;
+      animation: slideIn 0.2s ease;
+    }
+    @keyframes slideIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+    .product-row.success   { border-color: rgba(34,197,94,0.3); }
+    .product-row.no_ean    { opacity: 0.45; }
+    .product-row.no_bol    { border-color: rgba(245,158,11,0.25); }
+    .product-row.error     { border-color: rgba(239,68,68,0.3); }
+
+    .product-thumb { width: 44px; height: 44px; border-radius: 7px; object-fit: cover; background: var(--surface); border: 1px solid var(--border); flex-shrink: 0; }
+    .product-thumb-placeholder { width: 44px; height: 44px; border-radius: 7px; background: var(--surface); border: 1px solid var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 20px; color: var(--border); }
+
+    .product-info { flex: 1; min-width: 0; }
+    .product-name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .product-ean  { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+    .product-badge { flex-shrink: 0; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+    .badge-processing { background: rgba(92,110,248,0.12); color: var(--accent2); animation: pulse 1.2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.45} }
+    .badge-pending   { background: var(--surface); color: var(--text-muted); border: 1px solid var(--border); }
+    .badge-success   { background: rgba(34,197,94,0.12);  color: var(--green); }
+    .badge-unchanged { background: var(--surface);         color: var(--text-muted); }
+    .badge-no_ean    { background: rgba(107,114,128,0.15); color: var(--gray); }
+    .badge-no_bol    { background: rgba(245,158,11,0.12);  color: var(--yellow); }
+    .badge-error     { background: rgba(239,68,68,0.12);   color: var(--red); }
+
+    .complete-banner {
+      background: linear-gradient(135deg, rgba(34,197,94,0.12), rgba(34,197,94,0.05));
+      border: 1px solid rgba(34,197,94,0.3); border-radius: 10px;
+      padding: 16px 20px; margin-bottom: 20px;
+      display: flex; align-items: center; gap: 12px;
+      font-size: 14px; font-weight: 500; color: var(--green);
+    }
+    .error-banner {
+      background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3);
+      border-radius: 10px; padding: 14px 18px; margin-bottom: 20px;
+      font-size: 13px; color: var(--red);
+    }
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+    .empty-state .icon { font-size: 48px; margin-bottom: 16px; opacity: 0.4; }
+    .empty-state p { font-size: 14px; line-height: 1.6; }
+
+    .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">R</div>
+  <div>
+    <h1>Ropi Shopify Tool</h1>
+    <p>Bol.com afbeeldingen synchroniseren naar Shopify</p>
+  </div>
+</header>
+
+<main>
+  <!-- Sidebar -->
+  <aside>
+    <div class="card">
+      <div class="card-title">Instellingen</div>
+
+      <div id="cred-status" class="cred-status" style="display:none"></div>
+
+      <div class="field">
+        <label>Shopify Store URL</label>
+        <input type="text" id="store_url" placeholder="jouw-shop.myshopify.com" value="{{ defaults.store_url }}" />
+      </div>
+      <div class="field">
+        <label>Shopify Access Token</label>
+        <input type="password" id="token" placeholder="shpat_xxxxxxxxxxxx" value="{{ defaults.token }}" />
+      </div>
+
+      <hr class="divider" />
+
+      <div class="field">
+        <label>Bol.com Client ID</label>
+        <input type="text" id="bol_client_id" placeholder="xxxxxxxx-xxxx-xxxx-xxxx" value="{{ defaults.bol_client_id }}" />
+      </div>
+      <div class="field">
+        <label>Bol.com Client Secret</label>
+        <input type="password" id="bol_client_secret" placeholder="••••••••••••••••" value="{{ defaults.bol_client_secret }}" />
+      </div>
+
+      <button class="btn btn-secondary" id="test-btn" onclick="testCredentials()">Verbinding testen</button>
+
+      <hr class="divider" />
+
+      <div class="toggle-row">
+        <div class="toggle-btn" id="toggle-test"   onclick="toggleOption('test')">⚡ Test (3 prod.)</div>
+        <div class="toggle-btn" id="toggle-dryrun" onclick="toggleOption('dryrun')">👁 Dry run</div>
+      </div>
+
+      <button class="btn btn-primary" id="start-btn" onclick="startSync()">Sync starten</button>
+    </div>
+  </aside>
+
+  <!-- Dashboard -->
+  <section>
+    <div class="stats-row">
+      <div class="stat-box stat-added">   <div class="stat-num" id="s-added">—</div>   <div class="stat-label">Toegevoegd</div></div>
+      <div class="stat-box stat-skipped"> <div class="stat-num" id="s-skipped">—</div> <div class="stat-label">Al aanwezig</div></div>
+      <div class="stat-box stat-nobol">   <div class="stat-num" id="s-nobol">—</div>   <div class="stat-label">Niet op Bol</div></div>
+      <div class="stat-box stat-errors">  <div class="stat-num" id="s-errors">—</div>  <div class="stat-label">Fouten</div></div>
+    </div>
+
+    <div id="complete-banner" style="display:none" class="complete-banner">
+      <span style="font-size:22px">✅</span>
+      <span id="complete-text">Sync voltooid!</span>
+    </div>
+    <div id="error-banner" style="display:none" class="error-banner"></div>
+
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div class="card-title" style="margin-bottom:0">Producten</div>
+        <div class="status-text" id="status-text" style="margin-bottom:0">Klaar om te starten</div>
+      </div>
+
+      <div class="progress-wrap">
+        <div class="progress-bar" id="progress-bar"></div>
+      </div>
+
+      <div id="product-feed">
+        <div class="empty-state">
+          <div class="icon">🖼️</div>
+          <p>Start de sync om afbeeldingen<br>van Bol.com naar Shopify te kopiëren.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+  let testMode = false;
+  let dryRun   = false;
+  let running  = false;
+  const stats  = { added: 0, skipped: 0, nobol: 0, errors: 0 };
+
+  function creds() {
+    return {
+      store_url:         document.getElementById('store_url').value.trim().replace(/\/$/, ''),
+      token:             document.getElementById('token').value.trim(),
+      bol_client_id:     document.getElementById('bol_client_id').value.trim(),
+      bol_client_secret: document.getElementById('bol_client_secret').value.trim(),
+    };
+  }
+
+  function toggleOption(opt) {
+    if (opt === 'test')   { testMode = !testMode;  document.getElementById('toggle-test').classList.toggle('active', testMode); }
+    if (opt === 'dryrun') { dryRun   = !dryRun;    document.getElementById('toggle-dryrun').classList.toggle('active', dryRun); }
+  }
+
+  async function testCredentials() {
+    const btn = document.getElementById('test-btn');
+    btn.textContent = 'Testen…'; btn.disabled = true;
+    try {
+      const resp = await fetch('/api/test-credentials', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(creds()),
+      });
+      const r = await resp.json();
+      const el = document.getElementById('cred-status');
+      el.style.display = 'flex';
+      el.innerHTML = `
+        <div class="cred-badge ${r.shopify?.ok ? 'ok' : 'err'}"><div class="dot"></div>Shopify${r.shopify?.ok ? ': ' + r.shopify.name : ': fout'}</div>
+        <div class="cred-badge ${r.bol?.ok    ? 'ok' : 'err'}"><div class="dot"></div>Bol.com${r.bol?.ok    ? ': verbonden'         : ': fout'}</div>`;
+    } catch(e) { alert('Testfout: ' + e.message); }
+    btn.textContent = 'Verbinding testen'; btn.disabled = false;
+  }
+
+  async function startSync() {
+    if (running) return;
+    running = true;
+
+    const startBtn = document.getElementById('start-btn');
+    startBtn.disabled = true; startBtn.textContent = 'Bezig…';
+
+    // Reset
+    stats.added = stats.skipped = stats.nobol = stats.errors = 0;
+    updateStats();
+    document.getElementById('product-feed').innerHTML = '';
+    document.getElementById('progress-bar').style.width = '0%';
+    document.getElementById('complete-banner').style.display = 'none';
+    document.getElementById('error-banner').style.display   = 'none';
+    setStatus('Shopify producten ophalen…');
+
+    let products;
+    try {
+      const resp = await fetch('/api/products', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...creds(), test_mode: testMode }),
+      });
+      if (!resp.ok) { const e = await resp.json(); throw new Error(e.error); }
+      const data = await resp.json();
+      products = data.products;
+    } catch (e) {
+      showError(e.message);
+      reset(); return;
+    }
+
+    const total = products.length;
+    setStatus(`${total} producten gevonden. Sync gestart…`);
+
+    // Render alle rijen alvast als "pending"
+    const feed = document.getElementById('product-feed');
+    feed.innerHTML = '';
+    const rowMap = {};
+    for (const p of products) {
+      const row = makeRow(p);
+      feed.appendChild(row);
+      rowMap[p.id] = row;
+    }
+
+    // Sync één voor één
+    for (let i = 0; i < products.length; i++) {
+      const p = products[i];
+      const row = rowMap[p.id];
+      setBadge(row, 'processing', 'Laden…');
+      row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+
+      setStatus(`Verwerken ${i + 1} / ${total} — ${p.title}`);
+      document.getElementById('progress-bar').style.width = ((i / total) * 100) + '%';
+
+      if (!p.ean) {
+        stats.nobol++;
+        updateStats();
+        setBadge(row, 'no_ean', 'Geen EAN');
+        row.classList.add('no_ean');
+        continue;
+      }
+
+      try {
+        const resp = await fetch('/api/sync-product', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...creds(), product_id: p.id, ean: p.ean, dry_run: dryRun }),
+        });
+        const result = await resp.json();
+
+        row.classList.add(result.status);
+        if (result.status === 'success') {
+          stats.added += result.added;
+          setBadge(row, 'success', `+${result.added} foto${result.added !== 1 ? "'s" : ''}`);
+        } else if (result.status === 'no_bol') {
+          stats.nobol++;
+          setBadge(row, 'no_bol', 'Niet op Bol');
+        } else if (result.status === 'unchanged') {
+          stats.skipped += result.total_bol ?? 0;
+          setBadge(row, 'unchanged', 'Ongewijzigd');
+        } else if (result.status === 'error') {
+          stats.errors++;
+          setBadge(row, 'error', 'Fout');
+        }
+      } catch (e) {
+        stats.errors++;
+        setBadge(row, 'error', 'Fout');
+        row.classList.add('error');
+      }
+
+      updateStats();
+    }
+
+    document.getElementById('progress-bar').style.width = '100%';
+    setStatus('Gereed');
+    const banner = document.getElementById('complete-banner');
+    banner.style.display = 'flex';
+    document.getElementById('complete-text').textContent =
+      `Sync voltooid! ${stats.added} afbeelding${stats.added !== 1 ? 'en' : ''} toegevoegd.`;
+
+    reset();
+  }
+
+  function makeRow(p) {
+    const row = document.createElement('div');
+    row.className = 'product-row';
+    row.dataset.id = p.id;
+    const thumb = p.thumb
+      ? `<img class="product-thumb" src="${p.thumb}" alt="" loading="lazy">`
+      : `<div class="product-thumb-placeholder">📦</div>`;
+    row.innerHTML = `
+      ${thumb}
+      <div class="product-info">
+        <div class="product-name">${escHtml(p.title)}</div>
+        <div class="product-ean">${p.ean ? 'EAN: ' + p.ean : 'Geen EAN'}</div>
+      </div>
+      <div class="product-badge badge-pending">Wacht…</div>`;
+    return row;
+  }
+
+  function setBadge(row, status, text) {
+    const b = row.querySelector('.product-badge');
+    b.className = 'product-badge badge-' + status;
+    b.textContent = text;
+  }
+
+  function updateStats() {
+    document.getElementById('s-added').textContent   = stats.added;
+    document.getElementById('s-skipped').textContent = stats.skipped;
+    document.getElementById('s-nobol').textContent   = stats.nobol;
+    document.getElementById('s-errors').textContent  = stats.errors;
+  }
+
+  function setStatus(msg) { document.getElementById('status-text').textContent = msg; }
+
+  function showError(msg) {
+    const el = document.getElementById('error-banner');
+    el.style.display = 'block';
+    el.textContent = '❌ ' + msg;
+    setStatus('Gestopt door fout');
+  }
+
+  function reset() {
+    running = false;
+    const btn = document.getElementById('start-btn');
+    btn.disabled = false;
+    btn.textContent = 'Opnieuw starten';
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+</script>
+</body>
+</html>
