@@ -70,39 +70,70 @@ def add_image_to_shopify(store_url, token, product_id, image_url, position):
 
 # ── Bol.com helpers ───────────────────────────────────────────────────────────
 
-def get_bol_token(client_id, client_secret):
-    resp = requests.post(
-        "https://login.bol.com/token",
-        params={"grant_type": "client_credentials"},
-        auth=(client_id, client_secret),
-        timeout=15,
-    )
-    resp.raise_for_status()
-    data = resp.json()
-    return data["access_token"], data.get("expires_in", 3600)
+import re
+import json as _json
+
+BOL_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Accept-Language": "nl-NL,nl;q=0.9,en;q=0.8",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+}
 
 
-def get_bol_images(ean, bol_token):
-    headers = {
-        "Authorization": f"Bearer {bol_token}",
-        "Accept": "application/vnd.retailer.v10+json",
-    }
-    resp = requests.get(
-        f"https://api.bol.com/retailer/products/{ean}",
-        headers=headers,
-        timeout=15,
-    )
-    if resp.status_code == 404:
-        return []
-    resp.raise_for_status()
-    data = resp.json()
+def _extract_images_from_html(html):
+    """Haal afbeeldingen uit JSON-LD of og:image van een Bol.com pagina."""
     images = []
-    for asset in data.get("assets", []):
-        if asset.get("type") == "IMAGE":
-            variants = sorted(asset.get("variants", []), key=lambda v: v.get("width", 0), reverse=True)
-            if variants:
-                images.append(variants[0]["url"])
+    for m in re.findall(r'<script type="application/ld\+json">(.*?)</script>', html, re.DOTALL):
+        try:
+            ld = _json.loads(m.strip())
+            for item in (ld if isinstance(ld, list) else [ld]):
+                if item.get("@type") == "Product":
+                    imgs = item.get("image", [])
+                    if isinstance(imgs, str):
+                        imgs = [imgs]
+                    images.extend(imgs)
+        except Exception:
+            pass
+    if not images:
+        og = re.search(r'<meta property="og:image" content="([^"]+)"', html)
+        if og:
+            images = [og.group(1)]
     return images
+
+
+def _bol_get(url, retries=2):
+    """GET naar Bol.com met retry bij 429/503."""
+    for attempt in range(retries + 1):
+        resp = requests.get(url, headers=BOL_HEADERS, timeout=15, allow_redirects=True)
+        if resp.status_code == 429 or resp.status_code == 503:
+            time.sleep(3 * (attempt + 1))
+            continue
+        return resp
+    return resp
+
+
+def get_bol_images(ean, *_ignored):
+    """Haal Bol.com afbeeldingen op via publieke zoekopdracht — geen API key nodig."""
+    # Stap 1: zoek op EAN
+    resp = _bol_get(f"https://www.bol.com/nl/nl/s/?searchtext={ean}")
+    if resp.status_code != 200:
+        return []
+
+    images = _extract_images_from_html(resp.text)
+    if images:
+        return images
+
+    # Stap 2: volg eerste productlink
+    match = re.search(r'href="(/nl/nl/p/[^"?]+)"', resp.text)
+    if not match:
+        return []
+
+    time.sleep(0.5)  # kleine pauze tussen requests
+    prod_resp = _bol_get("https://www.bol.com" + match.group(1))
+    if prod_resp.status_code != 200:
+        return []
+
+    return _extract_images_from_html(prod_resp.text)
 
 
 # ── OAuth routes ──────────────────────────────────────────────────────────────
@@ -204,10 +235,7 @@ def index():
 def test_credentials():
     token     = session.get("shopify_token")
     store_url = session.get("store_url", "")
-    data      = request.json
-    bol_id     = data.get("bol_client_id", "").strip()
-    bol_secret = data.get("bol_client_secret", "").strip()
-    results    = {}
+    results   = {}
 
     if token and store_url:
         try:
@@ -222,9 +250,13 @@ def test_credentials():
     else:
         results["shopify"] = {"ok": False, "error": "Nog niet verbonden met Shopify"}
 
+    # Bol.com: test publieke toegang met een bekende EAN
     try:
-        get_bol_token(bol_id, bol_secret)
-        results["bol"] = {"ok": True}
+        resp = requests.get(
+            "https://www.bol.com/nl/nl/s/?searchtext=8718895681046",
+            headers=BOL_HEADERS, timeout=10,
+        )
+        results["bol"] = {"ok": resp.status_code == 200}
     except Exception as e:
         results["bol"] = {"ok": False, "error": str(e)}
 
@@ -233,16 +265,8 @@ def test_credentials():
 
 @app.route("/api/bol-token", methods=["POST"])
 def api_bol_token():
-    data       = request.json
-    bol_id     = data.get("bol_client_id", "").strip()
-    bol_secret = data.get("bol_client_secret", "").strip()
-    if not bol_id or not bol_secret:
-        return jsonify({"error": "Ontbrekende Bol.com credentials"}), 400
-    try:
-        token, expires_in = get_bol_token(bol_id, bol_secret)
-        return jsonify({"token": token, "expires_in": expires_in})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    """Niet meer nodig — Bol.com scraping gebruikt geen token."""
+    return jsonify({"token": "public", "expires_in": 86400})
 
 
 @app.route("/api/products", methods=["POST"])

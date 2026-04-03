@@ -423,15 +423,6 @@
 
       <hr class="divider" />
 
-      <div class="field">
-        <div class="label-row"><label>Bol.com Client ID</label><i class="info-icon" data-tip="bol-id">i</i></div>
-        <input type="text" id="bol_client_id" placeholder="xxxxxxxx-xxxx-xxxx-xxxx" value="{{ defaults.bol_client_id }}" />
-      </div>
-      <div class="field">
-        <div class="label-row"><label>Bol.com Client Secret</label><i class="info-icon" data-tip="bol-secret">i</i></div>
-        <input type="password" id="bol_client_secret" placeholder="••••••••••••••••" value="{{ defaults.bol_client_secret }}" />
-      </div>
-
       <div id="cred-status" class="cred-status" style="display:none"></div>
       <button class="btn btn-secondary" id="test-btn" onclick="testCredentials()">Verbinding testen</button>
 
@@ -528,12 +519,7 @@
     return 'ropi_sync_' + connectedStoreUrl;
   }
 
-  function creds() {
-    return {
-      bol_client_id:     document.getElementById('bol_client_id').value.trim(),
-      bol_client_secret: document.getElementById('bol_client_secret').value.trim(),
-    };
-  }
+  function creds() { return {}; }
 
   // ── Shopify OAuth ──────────────────────────────────────────────────────────
   async function checkAuthStatus() {
@@ -630,35 +616,22 @@
         body: JSON.stringify(creds()),
       });
       const r = await resp.json();
-      // Toon alleen Bol.com resultaat hier — Shopify status zit in de connect-knop
       const bolOk  = r.bol?.ok;
       const shopOk = r.shopify?.ok;
       let html = '';
       if (shopOk !== undefined) {
         html += `<div class="cred-badge ${shopOk ? 'ok' : 'err'}"><div class="dot"></div>Shopify${shopOk ? ': ' + r.shopify.name : ': ' + (r.shopify.error || 'fout')}</div>`;
       }
-      html += `<div class="cred-badge ${bolOk ? 'ok' : 'err'}"><div class="dot"></div>Bol.com${bolOk ? ': verbonden' : ': ' + (r.bol?.error || 'fout')}</div>`;
+      html += `<div class="cred-badge ${bolOk ? 'ok' : 'err'}"><div class="dot"></div>Bol.com${bolOk ? ': bereikbaar' : ': niet bereikbaar'}</div>`;
       const el = document.getElementById('cred-status');
       if (el) { el.style.display = 'flex'; el.innerHTML = html; }
     } catch(e) { alert('Testfout: ' + e.message); }
     btn.textContent = 'Verbinding testen'; btn.disabled = false;
   }
 
-  // ── Token caching ──────────────────────────────────────────────────────────
+  // ── Bol.com gebruikt nu publieke scraping — geen token nodig ──────────────
   async function ensureBolToken() {
-    if (bolToken && Date.now() < bolTokenExpiry - 60_000) return bolToken;
-    log('info', '🔑', 'Bol.com token ophalen…');
-    const c = creds();
-    const resp = await fetch('/api/bol-token', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bol_client_id: c.bol_client_id, bol_client_secret: c.bol_client_secret }),
-    });
-    if (!resp.ok) { const e = await resp.json(); throw new Error('Bol.com token: ' + e.error); }
-    const data = await resp.json();
-    bolToken       = data.token;
-    bolTokenExpiry = Date.now() + data.expires_in * 1000;
-    log('ok', '🔑', 'Token verkregen (geldig ' + Math.round(data.expires_in / 60) + ' min)');
-    return bolToken;
+    return 'public';
   }
 
   // ── Hervat-functie ─────────────────────────────────────────────────────────
