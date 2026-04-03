@@ -396,17 +396,14 @@
           <input type="text" id="store_url" placeholder="jouw-winkel.myshopify.com" />
         </div>
         <div class="field">
-          <div class="label-row"><label>Shopify Client ID</label><i class="info-icon" data-tip="shopify-client-id">i</i></div>
-          <input type="text" id="shopify_client_id" placeholder="f8e09dee426b6894..." />
-        </div>
-        <div class="field">
-          <div class="label-row"><label>Shopify Client Secret</label><i class="info-icon" data-tip="shopify-client-secret">i</i></div>
-          <input type="password" id="shopify_client_secret" placeholder="shpss_••••••••••••••" />
+          <div class="label-row"><label>Admin API Access Token</label><i class="info-icon" data-tip="shopify-token">i</i></div>
+          <input type="password" id="shopify_access_token" placeholder="shpat_••••••••••••••••••••" />
         </div>
         <button class="btn btn-shopify" id="connect-btn" onclick="connectShopify()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><path d="M15.337 23.979l4.639-1.006s-1.668-11.27-1.678-11.34c-.011-.07-.07-.115-.13-.115-.058 0-1.08-.022-1.08-.022s-.64-.632-.88-.87v13.353zM12.74 7.026s-.432-.13-1.134-.13c-1.793 0-2.66 1.134-2.98 1.904-.727.204-1.454.406-2.182.61l-.001.012c-.003.084-.006.168-.006.253 0 2.07.903 3.8 2.37 4.977L9.33 23.9 15.78 22.3l-3.04-15.274zM13.53 4.8c0-.05-.003-.1-.003-.15-.003-1.48-.203-2.675-.558-3.63-.867.093-1.63.67-2.15 1.516.37.124.72.325 1.04.61.627.56 1.09 1.39 1.3 2.475l.372-.82zM11.14.28C9.91.607 8.97 1.898 8.43 3.773c.513-.162 1.073-.252 1.681-.252.22 0 .437.014.648.04C11.196 2.25 11.67 1.04 11.14.28z"/></svg>
           Verbinden met Shopify
         </button>
+        <div id="connect-error" style="display:none;margin-top:10px;padding:9px 12px;background:rgba(232,68,59,0.08);border:1px solid rgba(232,68,59,0.25);border-radius:9px;font-size:12px;color:var(--accent2);line-height:1.45;"></div>
       </div>
 
       <div id="shopify-connected" style="display:none">
@@ -545,35 +542,41 @@
     }
   }
 
-  async function connectShopify() {
-    const storeUrl      = document.getElementById('store_url').value.trim().replace(/\/$/, '').replace('https://', '');
-    const clientId      = document.getElementById('shopify_client_id').value.trim();
-    const clientSecret  = document.getElementById('shopify_client_secret').value.trim();
+  const SHOPIFY_BTN_HTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><path d="M15.337 23.979l4.639-1.006s-1.668-11.27-1.678-11.34c-.011-.07-.07-.115-.13-.115-.058 0-1.08-.022-1.08-.022s-.64-.632-.88-.87v13.353zM12.74 7.026s-.432-.13-1.134-.13c-1.793 0-2.66 1.134-2.98 1.904-.727.204-1.454.406-2.182.61l-.001.012c-.003.084-.006.168-.006.253 0 2.07.903 3.8 2.37 4.977L9.33 23.9 15.78 22.3l-3.04-15.274zM13.53 4.8c0-.05-.003-.1-.003-.15-.003-1.48-.203-2.675-.558-3.63-.867.093-1.63.67-2.15 1.516.37.124.72.325 1.04.61.627.56 1.09 1.39 1.3 2.475l.372-.82zM11.14.28C9.91.607 8.97 1.898 8.43 3.773c.513-.162 1.073-.252 1.681-.252.22 0 .437.014.648.04C11.196 2.25 11.67 1.04 11.14.28z"/></svg> Verbinden met Shopify';
 
-    if (!storeUrl)     { alert('Vul je Shopify Store URL in.'); return; }
-    if (!clientId)     { alert('Vul je Shopify Client ID in.'); return; }
-    if (!clientSecret) { alert('Vul je Shopify Client Secret in.'); return; }
+  async function connectShopify() {
+    const storeUrl = document.getElementById('store_url').value.trim().replace(/\/$/, '').replace(/^https?:\/\//, '');
+    const token    = document.getElementById('shopify_access_token').value.trim();
+    const errEl    = document.getElementById('connect-error');
+
+    errEl.style.display = 'none';
+
+    if (!storeUrl) { errEl.textContent = 'Vul je Shopify Store URL in.'; errEl.style.display = 'block'; return; }
+    if (!token)    { errEl.textContent = 'Vul je Admin API Access Token in.'; errEl.style.display = 'block'; return; }
 
     const btn = document.getElementById('connect-btn');
     btn.disabled = true;
     btn.innerHTML = '<span>Verbinden…</span>';
 
     try {
-      const resp = await fetch('/auth/login', {
+      const resp = await fetch('/auth/token', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ store_url: storeUrl, client_id: clientId, client_secret: clientSecret }),
+        body: JSON.stringify({ store_url: storeUrl, access_token: token }),
       });
       const data = await resp.json();
       if (data.error) {
-        alert(data.error);
+        errEl.textContent = data.error;
+        errEl.style.display = 'block';
         btn.disabled = false;
-        btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><path d="M15.337 23.979l4.639-1.006s-1.668-11.27-1.678-11.34c-.011-.07-.07-.115-.13-.115-.058 0-1.08-.022-1.08-.022s-.64-.632-.88-.87v13.353zM12.74 7.026s-.432-.13-1.134-.13c-1.793 0-2.66 1.134-2.98 1.904-.727.204-1.454.406-2.182.61l-.001.012c-.003.084-.006.168-.006.253 0 2.07.903 3.8 2.37 4.977L9.33 23.9 15.78 22.3l-3.04-15.274zM13.53 4.8c0-.05-.003-.1-.003-.15-.003-1.48-.203-2.675-.558-3.63-.867.093-1.63.67-2.15 1.516.37.124.72.325 1.04.61.627.56 1.09 1.39 1.3 2.475l.372-.82zM11.14.28C9.91.607 8.97 1.898 8.43 3.773c.513-.162 1.073-.252 1.681-.252.22 0 .437.014.648.04C11.196 2.25 11.67 1.04 11.14.28z"/></svg><span> Verbinden met Shopify</span>';
+        btn.innerHTML = SHOPIFY_BTN_HTML;
         return;
       }
-      window.location.href = data.auth_url;
+      showConnected(data.store_url, data.shop_name);
     } catch(e) {
-      alert('Fout: ' + e.message);
+      errEl.textContent = 'Verbindingsfout: ' + e.message;
+      errEl.style.display = 'block';
       btn.disabled = false;
+      btn.innerHTML = SHOPIFY_BTN_HTML;
     }
   }
 
@@ -582,12 +585,12 @@
     showDisconnected();
   }
 
-  function showConnected(storeUrl) {
+  function showConnected(storeUrl, shopName) {
     shopifyConnected  = true;
     connectedStoreUrl = storeUrl;
     document.getElementById('shopify-disconnected').style.display = 'none';
     document.getElementById('shopify-connected').style.display    = 'block';
-    document.getElementById('connected-store-name').textContent   = storeUrl.replace('.myshopify.com', '');
+    document.getElementById('connected-store-name').textContent   = shopName || storeUrl.replace('.myshopify.com', '');
     document.getElementById('connected-store-url').textContent    = storeUrl;
     document.getElementById('start-btn').disabled = false;
     checkResume();
@@ -919,16 +922,12 @@
       <div class="tip-step"><div class="tip-step-num">2</div><div>Klik "Verbinding testen"</div></div>
       <div class="tip-step"><div class="tip-step-num">3</div><div>Zet Test + Dry run aan voor een proefrun</div></div>
       <div class="tip-step"><div class="tip-step-num">4</div><div>Klik "Sync starten"</div></div>`,
-    'shopify-client-id': `<strong>Shopify Client ID</strong>
-      Te vinden in je Shopify Partners app.
-      <div class="tip-step"><div class="tip-step-num">1</div><div>Ga naar <em>dev.shopify.com</em></div></div>
-      <div class="tip-step"><div class="tip-step-num">2</div><div>Klik op jouw app → <em>Settings</em></div></div>
-      <div class="tip-step"><div class="tip-step-num">3</div><div>Kopieer de <em>Client ID</em> bovenaan</div></div>`,
-    'shopify-client-secret': `<strong>Shopify Client Secret</strong>
-      Het wachtwoord bij je Client ID. Ook te vinden in de Partners app.
-      <div class="tip-step"><div class="tip-step-num">1</div><div>Ga naar <em>dev.shopify.com</em> → jouw app → <em>Settings</em></div></div>
-      <div class="tip-step"><div class="tip-step-num">2</div><div>Klik op het oog-icoon naast <em>Secret</em> om hem te tonen</div></div>
-      ⚠️ Deel dit nooit met anderen.`,
+    'shopify-token': `<strong>Admin API Access Token</strong>
+      Dit is een <em>shpat_…</em> token uit een Shopify Custom App.
+      <div class="tip-step"><div class="tip-step-num">1</div><div>Ga naar <em>Shopify Admin → Instellingen → Apps en verkoopkanalen</em></div></div>
+      <div class="tip-step"><div class="tip-step-num">2</div><div>Klik op <em>Apps ontwikkelen</em> → <em>App maken</em></div></div>
+      <div class="tip-step"><div class="tip-step-num">3</div><div>Stel API-scopes in: <em>read_products, write_products</em></div></div>
+      <div class="tip-step"><div class="tip-step-num">4</div><div>Klik <em>Installeren</em> → kopieer het <em>Admin API access token</em></div></div>`,
     'shopify-url': `<strong>Shopify Store URL</strong>
       Het adres van jouw winkel. Je vindt dit in de adresbalk als je ingelogd bent in Shopify Admin.
       <div class="tip-step"><div class="tip-step-num">1</div><div>Log in op <em>admin.shopify.com</em></div></div>
