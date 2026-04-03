@@ -162,23 +162,28 @@ def get_bol_images(ean, bol_token):
         "Authorization": f"Bearer {bol_token}",
         "Accept": "application/vnd.retailer.v10+json",
     }
-    resp = requests.get(
-        f"https://api.bol.com/retailer/products/{ean}/assets",
-        headers=headers,
-        timeout=15,
-    )
-    if resp.status_code == 404:
-        return []
-    resp.raise_for_status()
-    data = resp.json()
-
-    images = []
-    for asset in data.get("assets", []):
-        # Pak de variant met de grootste breedte (hoogste resolutie)
-        variants = sorted(asset.get("variants", []), key=lambda v: v.get("width", 0), reverse=True)
-        if variants:
-            images.append(variants[0]["url"])
-    return images
+    # Retry bij 429 (rate limit) met exponential backoff
+    for attempt in range(4):
+        resp = requests.get(
+            f"https://api.bol.com/retailer/products/{ean}/assets",
+            headers=headers,
+            timeout=15,
+        )
+        if resp.status_code == 429:
+            wait = int(resp.headers.get("Retry-After", 10)) if attempt == 0 else (2 ** attempt) * 5
+            time.sleep(wait)
+            continue
+        if resp.status_code == 404:
+            return []
+        resp.raise_for_status()
+        data = resp.json()
+        images = []
+        for asset in data.get("assets", []):
+            variants = sorted(asset.get("variants", []), key=lambda v: v.get("width", 0), reverse=True)
+            if variants:
+                images.append(variants[0]["url"])
+        return images
+    raise Exception("Bol.com rate limit: te veel verzoeken, probeer later opnieuw")
 
 
 # ── OAuth routes ──────────────────────────────────────────────────────────────
@@ -410,7 +415,7 @@ def api_sync_product():
                 if add_image_to_shopify(store_url, token, product_id, img_url, next_position):
                     added += 1
                     next_position += 1
-                time.sleep(0.5)
+                time.sleep(0.3)
             except Exception as e:
                 errors.append(str(e))
         else:
