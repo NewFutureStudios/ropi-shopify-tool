@@ -386,6 +386,7 @@ def api_sync_product():
     if not ean:
         return jsonify({"status": "no_ean", "added": 0, "skipped": 0})
 
+    time.sleep(1)  # 1 sec pauze per product — voorkomt Bol.com rate limit
     try:
         bol_images = get_bol_images(ean, bol_token)
     except Exception as e:
