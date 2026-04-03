@@ -712,17 +712,35 @@
     log('info', '🛍', 'Shopify producten ophalen…');
     if (!shopifyConnected) { showError('Verbind eerst met Shopify.'); reset(); return; }
 
-    let products;
+    // Haal producten op in pagina's (Vercel timeout-veilig)
+    let products = [];
+    let pageUrl  = null;
+    let pageNum  = 0;
     try {
-      const resp = await fetch('/api/products', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ test_mode: testMode }),
-      });
-      if (!resp.ok) { const e = await resp.json(); throw new Error(e.error); }
-      products = (await resp.json()).products;
+      while (true) {
+        pageNum++;
+        if (pageNum > 1) { setStatus(`Producten laden — pagina ${pageNum}…`); log('info', '🛍', `Pagina ${pageNum} ophalen…`); }
+        const resp = await fetch('/api/products', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ test_mode: testMode, page_url: pageUrl }),
+        });
+        const text = await resp.text();
+        let data;
+        try { data = JSON.parse(text); }
+        catch (_) {
+          const preview = text.substring(0, 200).replace(/</g,'&lt;');
+          log('err', '✗', `Server stuurde geen JSON (pagina ${pageNum}): ${text.substring(0,120)}`);
+          throw new Error(`Server fout (pagina ${pageNum}) — geen JSON. Status: ${resp.status}. Zie logboek.`);
+        }
+        if (!resp.ok) throw new Error(data.error || data.detail || `HTTP ${resp.status}`);
+        products = products.concat(data.products || []);
+        pageUrl  = data.next_page_url || null;
+        log('info', '🛍', `Pagina ${pageNum}: ${data.products.length} producten${pageUrl ? ', meer volgt…' : ', klaar'}`);
+        if (!pageUrl) break;
+      }
     } catch (e) { showError(e.message); reset(); return; }
 
-    log('ok', '🛍', `${products.length} producten gevonden`);
+    log('ok', '🛍', `Totaal ${products.length} producten geladen`);
 
     const saved     = resume ? (loadProgress() || {}) : {};
     const completed = saved.completed || {};

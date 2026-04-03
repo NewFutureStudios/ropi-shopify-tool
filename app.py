@@ -28,24 +28,26 @@ def shopify_headers(token):
     return {"X-Shopify-Access-Token": token, "Content-Type": "application/json"}
 
 
-def get_all_shopify_products(store_url, token):
-    products = []
-    url = f"https://{store_url}/admin/api/{SHOPIFY_API_VERSION}/products.json"
-    params = {"limit": 250, "fields": "id,title,variants,images,image"}
-    while url:
-        resp = requests.get(url, headers=shopify_headers(token), params=params, timeout=15)
-        resp.raise_for_status()
-        data = resp.json()
-        products.extend(data.get("products", []))
-        link = resp.headers.get("Link", "")
-        url = None
+def get_shopify_products_page(store_url, token, page_url=None):
+    """Haal één pagina producten op (max 250). Geeft (products, next_url) terug."""
+    if page_url:
+        url = page_url
         params = {}
-        if 'rel="next"' in link:
-            for part in link.split(","):
-                if 'rel="next"' in part:
-                    url = part.split(";")[0].strip().strip("<>")
-                    break
-    return products
+    else:
+        url = f"https://{store_url}/admin/api/{SHOPIFY_API_VERSION}/products.json"
+        params = {"limit": 250, "fields": "id,title,variants,images,image"}
+    resp = requests.get(url, headers=shopify_headers(token), params=params, timeout=9)
+    resp.raise_for_status()
+    data = resp.json()
+    products = data.get("products", [])
+    next_url = None
+    link = resp.headers.get("Link", "")
+    if 'rel="next"' in link:
+        for part in link.split(","):
+            if 'rel="next"' in part:
+                next_url = part.split(";")[0].strip().strip("<>")
+                break
+    return products, next_url
 
 
 def get_existing_image_srcs(store_url, token, product_id):
@@ -245,17 +247,20 @@ def api_bol_token():
 
 @app.route("/api/products", methods=["POST"])
 def api_products():
+    """Haal één pagina producten op. Stuur next_page_url mee voor volgende aanroep."""
     token     = session.get("shopify_token")
     store_url = session.get("store_url", "")
     if not token or not store_url:
         return jsonify({"error": "Niet verbonden met Shopify"}), 401
 
-    test_mode = request.json.get("test_mode", False)
+    data      = request.json or {}
+    test_mode = data.get("test_mode", False)
+    page_url  = data.get("page_url", None)   # None = eerste pagina
 
     try:
-        raw = get_all_shopify_products(store_url, token)
+        raw, next_url = get_shopify_products_page(store_url, token, page_url)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": str(e), "detail": "Shopify products fetch mislukt"}), 500
 
     products = []
     for p in raw:
@@ -273,10 +278,12 @@ def api_products():
             "thumb": img["src"] if img else None,
         })
 
+    # In test-modus: geen paginering nodig, gewoon eerste 3
     if test_mode:
         products = products[:3]
+        next_url = None
 
-    return jsonify({"products": products})
+    return jsonify({"products": products, "next_page_url": next_url})
 
 
 @app.route("/api/sync-product", methods=["POST"])
