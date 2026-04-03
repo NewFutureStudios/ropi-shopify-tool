@@ -14,7 +14,7 @@ load_dotenv()
 
 app = Flask(__name__)
 
-SHOPIFY_API_VERSION = "2024-01"
+SHOPIFY_API_VERSION = "2026-04"
 
 # ── Shopify ──────────────────────────────────────────────────────────────────
 
