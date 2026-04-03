@@ -80,6 +80,18 @@ BOL_HEADERS = {
 }
 
 
+def get_bol_token(client_id, client_secret):
+    resp = requests.post(
+        "https://login.bol.com/token",
+        params={"grant_type": "client_credentials"},
+        auth=(client_id, client_secret),
+        timeout=15,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    return data["access_token"], data.get("expires_in", 3600)
+
+
 def _to_highres(url):
     """Zet een Bol.com afbeeldings-URL om naar de hoogste resolutie variant."""
     # Bol.com patroon: .../images/xxx/400x400/... of .../thumb/... → vervang door 1600x1600
@@ -144,28 +156,29 @@ def _bol_get(url, retries=2):
     return resp
 
 
-def get_bol_images(ean, *_ignored):
-    """Haal Bol.com afbeeldingen op via publieke zoekopdracht — geen API key nodig."""
-    # Stap 1: zoek op EAN
-    resp = _bol_get(f"https://www.bol.com/nl/nl/s/?searchtext={ean}")
-    if resp.status_code != 200:
+def get_bol_images(ean, bol_token):
+    """Haal Bol.com afbeeldingen op via de officiële Retailer API v10 assets endpoint."""
+    headers = {
+        "Authorization": f"Bearer {bol_token}",
+        "Accept": "application/vnd.retailer.v10+json",
+    }
+    resp = requests.get(
+        f"https://api.bol.com/retailer/products/{ean}/assets",
+        headers=headers,
+        timeout=15,
+    )
+    if resp.status_code == 404:
         return []
+    resp.raise_for_status()
+    data = resp.json()
 
-    images = _extract_images_from_html(resp.text)
-    if images:
-        return images
-
-    # Stap 2: volg eerste productlink
-    match = re.search(r'href="(/nl/nl/p/[^"?]+)"', resp.text)
-    if not match:
-        return []
-
-    time.sleep(0.5)  # kleine pauze tussen requests
-    prod_resp = _bol_get("https://www.bol.com" + match.group(1))
-    if prod_resp.status_code != 200:
-        return []
-
-    return _extract_images_from_html(prod_resp.text)
+    images = []
+    for asset in data.get("assets", []):
+        # Pak de variant met de grootste breedte (hoogste resolutie)
+        variants = sorted(asset.get("variants", []), key=lambda v: v.get("width", 0), reverse=True)
+        if variants:
+            images.append(variants[0]["url"])
+    return images
 
 
 # ── OAuth routes ──────────────────────────────────────────────────────────────
@@ -267,7 +280,10 @@ def index():
 def test_credentials():
     token     = session.get("shopify_token")
     store_url = session.get("store_url", "")
-    results   = {}
+    data      = request.json or {}
+    bol_id     = data.get("bol_client_id", "").strip()
+    bol_secret = data.get("bol_client_secret", "").strip()
+    results    = {}
 
     if token and store_url:
         try:
@@ -282,23 +298,30 @@ def test_credentials():
     else:
         results["shopify"] = {"ok": False, "error": "Nog niet verbonden met Shopify"}
 
-    # Bol.com: test publieke toegang met een bekende EAN
-    try:
-        resp = requests.get(
-            "https://www.bol.com/nl/nl/s/?searchtext=8718895681046",
-            headers=BOL_HEADERS, timeout=10,
-        )
-        results["bol"] = {"ok": resp.status_code == 200}
-    except Exception as e:
-        results["bol"] = {"ok": False, "error": str(e)}
+    if bol_id and bol_secret:
+        try:
+            get_bol_token(bol_id, bol_secret)
+            results["bol"] = {"ok": True}
+        except Exception as e:
+            results["bol"] = {"ok": False, "error": str(e)}
+    else:
+        results["bol"] = {"ok": False, "error": "Vul Bol.com credentials in"}
 
     return jsonify(results)
 
 
 @app.route("/api/bol-token", methods=["POST"])
 def api_bol_token():
-    """Niet meer nodig — Bol.com scraping gebruikt geen token."""
-    return jsonify({"token": "public", "expires_in": 86400})
+    data       = request.json or {}
+    bol_id     = data.get("bol_client_id", "").strip()
+    bol_secret = data.get("bol_client_secret", "").strip()
+    if not bol_id or not bol_secret:
+        return jsonify({"error": "Ontbrekende Bol.com credentials"}), 400
+    try:
+        token, expires_in = get_bol_token(bol_id, bol_secret)
+        return jsonify({"token": token, "expires_in": expires_in})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/products", methods=["POST"])
