@@ -337,6 +337,28 @@
     .tip-step { display: flex; gap: 8px; margin-top: 6px; font-size: 11.5px; color: var(--text-muted); }
     .tip-step-num { width: 17px; height: 17px; border-radius: 50%; background: var(--accent-dim); color: var(--accent2); font-size: 10px; font-weight: 800; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(232,68,59,0.2); }
 
+    /* ── Shopify connect ── */
+    .btn-shopify {
+      width: 100%; padding: 11px; border-radius: 10px; border: none;
+      background: #96BF48; color: #fff; font-size: 14px; font-weight: 700;
+      cursor: pointer; transition: all 0.18s; display: flex; align-items: center;
+      justify-content: center; gap: 8px;
+    }
+    .btn-shopify:hover { background: #a8d451; transform: translateY(-1px); }
+    .btn-shopify:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    .shopify-connected-box {
+      display: flex; align-items: center; gap: 10px;
+      background: rgba(34,197,94,0.07); border: 1px solid rgba(34,197,94,0.25);
+      border-radius: 10px; padding: 12px 14px;
+    }
+    .connected-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex-shrink: 0; box-shadow: 0 0 8px rgba(34,197,94,0.5); }
+    .connected-info { flex: 1; min-width: 0; }
+    .connected-name { font-size: 13.5px; font-weight: 600; color: var(--green); }
+    .connected-url  { font-size: 11.5px; color: var(--text-muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .btn-disconnect { flex-shrink: 0; background: none; border: 1px solid var(--border2); border-radius: 7px; padding: 5px 10px; font-size: 11.5px; color: var(--text-muted); cursor: pointer; transition: all 0.15s; }
+    .btn-disconnect:hover { border-color: var(--accent); color: var(--accent2); }
+
     /* ── Footer ── */
     footer {
       text-align: center; padding: 22px;
@@ -367,15 +389,27 @@
         <i class="info-icon" data-tip="wat-is-dit">i</i>
       </div>
 
-      <div id="cred-status" class="cred-status" style="display:none"></div>
-
-      <div class="field">
-        <div class="label-row"><label>Shopify Store URL</label><i class="info-icon" data-tip="shopify-url">i</i></div>
-        <input type="text" id="store_url" placeholder="jouw-shop.myshopify.com" value="{{ defaults.store_url }}" />
+      <!-- Shopify verbinding status -->
+      <div id="shopify-disconnected">
+        <div class="field">
+          <div class="label-row"><label>Shopify Store URL</label><i class="info-icon" data-tip="shopify-url">i</i></div>
+          <input type="text" id="store_url" placeholder="jouw-winkel.myshopify.com" />
+        </div>
+        <button class="btn btn-shopify" id="connect-btn" onclick="connectShopify()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><path d="M15.337 23.979l4.639-1.006s-1.668-11.27-1.678-11.34c-.011-.07-.07-.115-.13-.115-.058 0-1.08-.022-1.08-.022s-.64-.632-.88-.87v13.353zM12.74 7.026s-.432-.13-1.134-.13c-1.793 0-2.66 1.134-2.98 1.904-.727.204-1.454.406-2.182.61l-.001.012c-.003.084-.006.168-.006.253 0 2.07.903 3.8 2.37 4.977L9.33 23.9 15.78 22.3l-3.04-15.274zM13.53 4.8c0-.05-.003-.1-.003-.15-.003-1.48-.203-2.675-.558-3.63-.867.093-1.63.67-2.15 1.516.37.124.72.325 1.04.61.627.56 1.09 1.39 1.3 2.475l.372-.82zM11.14.28C9.91.607 8.97 1.898 8.43 3.773c.513-.162 1.073-.252 1.681-.252.22 0 .437.014.648.04C11.196 2.25 11.67 1.04 11.14.28z"/></svg>
+          Verbinden met Shopify
+        </button>
       </div>
-      <div class="field">
-        <div class="label-row"><label>Shopify Access Token</label><i class="info-icon" data-tip="shopify-token">i</i></div>
-        <input type="password" id="token" placeholder="shpat_xxxxxxxxxxxx" value="{{ defaults.token }}" />
+
+      <div id="shopify-connected" style="display:none">
+        <div class="shopify-connected-box">
+          <div class="connected-dot"></div>
+          <div class="connected-info">
+            <div class="connected-name" id="connected-store-name">Verbonden</div>
+            <div class="connected-url" id="connected-store-url"></div>
+          </div>
+          <button class="btn-disconnect" onclick="disconnectShopify()">Loskoppelen</button>
+        </div>
       </div>
 
       <hr class="divider" />
@@ -410,7 +444,7 @@
         </div>
       </div>
 
-      <button class="btn btn-primary" id="start-btn" onclick="startSync(false)">Sync starten</button>
+      <button class="btn btn-primary" id="start-btn" onclick="startSync(false)" disabled>Sync starten</button>
     </div>
   </aside>
 
@@ -477,19 +511,81 @@
 
   let bolToken       = null;
   let bolTokenExpiry = 0;
+  let shopifyConnected = false;
+  let connectedStoreUrl = '';
 
   function resumeKey() {
-    return 'ropi_sync_' + document.getElementById('store_url').value.trim();
+    return 'ropi_sync_' + connectedStoreUrl;
   }
 
   function creds() {
     return {
-      store_url:         document.getElementById('store_url').value.trim().replace(/\/$/, ''),
-      token:             document.getElementById('token').value.trim(),
       bol_client_id:     document.getElementById('bol_client_id').value.trim(),
       bol_client_secret: document.getElementById('bol_client_secret').value.trim(),
     };
   }
+
+  // ── Shopify OAuth ──────────────────────────────────────────────────────────
+  async function checkAuthStatus() {
+    const resp = await fetch('/auth/status');
+    const data = await resp.json();
+    if (data.connected) {
+      showConnected(data.store_url);
+    } else {
+      showDisconnected();
+    }
+  }
+
+  async function connectShopify() {
+    const storeUrl = document.getElementById('store_url').value.trim().replace(/\/$/, '').replace('https://', '');
+    if (!storeUrl) { alert('Vul eerst je store URL in.'); return; }
+
+    const btn = document.getElementById('connect-btn');
+    btn.disabled = true; btn.childNodes[1].textContent = ' Verbinden…';
+
+    try {
+      const resp = await fetch('/auth/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ store_url: storeUrl }),
+      });
+      const data = await resp.json();
+      if (data.error) { alert(data.error); btn.disabled = false; btn.childNodes[1].textContent = ' Verbinden met Shopify'; return; }
+      // Open OAuth in hetzelfde venster
+      window.location.href = data.auth_url;
+    } catch(e) {
+      alert('Fout: ' + e.message);
+      btn.disabled = false;
+    }
+  }
+
+  async function disconnectShopify() {
+    await fetch('/auth/logout', { method: 'POST' });
+    showDisconnected();
+  }
+
+  function showConnected(storeUrl) {
+    shopifyConnected  = true;
+    connectedStoreUrl = storeUrl;
+    document.getElementById('shopify-disconnected').style.display = 'none';
+    document.getElementById('shopify-connected').style.display    = 'block';
+    document.getElementById('connected-store-name').textContent   = storeUrl.replace('.myshopify.com', '');
+    document.getElementById('connected-store-url').textContent    = storeUrl;
+    document.getElementById('start-btn').disabled = false;
+    checkResume();
+  }
+
+  function showDisconnected() {
+    shopifyConnected  = false;
+    connectedStoreUrl = '';
+    document.getElementById('shopify-disconnected').style.display = 'block';
+    document.getElementById('shopify-connected').style.display    = 'none';
+    document.getElementById('start-btn').disabled = true;
+    document.getElementById('resume-banner').style.display = 'none';
+    document.getElementById('start-btn').style.display = 'block';
+  }
+
+  // Check status bij laden
+  window.addEventListener('load', checkAuthStatus);
 
   function toggleOption(opt) {
     if (opt === 'test')   { testMode = !testMode;  document.getElementById('toggle-test').classList.toggle('active', testMode); }
@@ -512,7 +608,7 @@
         <div class="cred-badge ${r.shopify?.ok ? 'ok' : 'err'}"><div class="dot"></div>Shopify${r.shopify?.ok ? ': ' + r.shopify.name : ': fout'}</div>
         <div class="cred-badge ${r.bol?.ok ? 'ok' : 'err'}"><div class="dot"></div>Bol.com${r.bol?.ok ? ': verbonden' : ': fout'}</div>`;
     } catch(e) { alert('Testfout: ' + e.message); }
-    btn.textContent = 'Verbinding testen'; btn.disabled = false;
+    btn.textContent = 'Bol.com testen'; btn.disabled = false;
   }
 
   // ── Token caching ──────────────────────────────────────────────────────────
@@ -542,6 +638,7 @@
   function clearProgress() { localStorage.removeItem(resumeKey()); }
 
   function checkResume() {
+    if (!shopifyConnected) return;
     const saved = loadProgress();
     const banner = document.getElementById('resume-banner');
     if (saved && saved.done < saved.total) {
@@ -556,9 +653,6 @@
       document.getElementById('start-btn').style.display = 'block';
     }
   }
-
-  window.addEventListener('load', checkResume);
-  document.getElementById('store_url').addEventListener('input', checkResume);
 
   // ── Sync ───────────────────────────────────────────────────────────────────
   async function startSync(resume = false) {
@@ -583,11 +677,13 @@
 
     setStatus('Shopify producten ophalen…');
     log('info', '🛍', 'Shopify producten ophalen…');
+    if (!shopifyConnected) { showError('Verbind eerst met Shopify.'); reset(); return; }
+
     let products;
     try {
       const resp = await fetch('/api/products', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...creds(), test_mode: testMode }),
+        body: JSON.stringify({ test_mode: testMode }),
       });
       if (!resp.ok) { const e = await resp.json(); throw new Error(e.error); }
       products = (await resp.json()).products;
@@ -661,7 +757,7 @@
       try {
         const resp = await fetch('/api/sync-product', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...creds(), bol_token: token, product_id: p.id, ean: p.ean, dry_run: dryRun }),
+          body: JSON.stringify({ bol_token: token, product_id: p.id, ean: p.ean, dry_run: dryRun }),
         });
         result = await resp.json();
       } catch (e) {
@@ -800,16 +896,10 @@
       <div class="tip-step"><div class="tip-step-num">3</div><div>Zet Test + Dry run aan voor een proefrun</div></div>
       <div class="tip-step"><div class="tip-step-num">4</div><div>Klik "Sync starten"</div></div>`,
     'shopify-url': `<strong>Shopify Store URL</strong>
-      Adres van je winkel. Zichtbaar in de adresbalk van Shopify Admin.
+      Het adres van jouw winkel. Je vindt dit in de adresbalk als je ingelogd bent in Shopify Admin.
       <div class="tip-step"><div class="tip-step-num">1</div><div>Log in op <em>admin.shopify.com</em></div></div>
       <div class="tip-step"><div class="tip-step-num">2</div><div>Kijk in de adresbalk: <em>jouw-winkel.myshopify.com</em></div></div>
-      Zonder "https://", zonder slash.`,
-    'shopify-token': `<strong>Shopify Access Token</strong>
-      Sleutel voor toegang tot je winkel.
-      <div class="tip-step"><div class="tip-step-num">1</div><div>Admin → <em>Instellingen → Apps</em></div></div>
-      <div class="tip-step"><div class="tip-step-num">2</div><div><em>Apps ontwikkelen → Aangepaste app maken</em></div></div>
-      <div class="tip-step"><div class="tip-step-num">3</div><div>Rechten: <em>read_products + write_products</em></div></div>
-      <div class="tip-step"><div class="tip-step-num">4</div><div>Installeren → token kopiëren (begint met <em>shpat_</em>)</div></div>`,
+      <div class="tip-step"><div class="tip-step-num">3</div><div>Vul dit in en klik <em>Verbinden met Shopify</em></div></div>`,
     'bol-id': `<strong>Bol.com Client ID</strong>
       Je identificatie voor de Bol.com API.
       <div class="tip-step"><div class="tip-step-num">1</div><div>Log in op <em>partner.bol.com</em></div></div>

@@ -6,17 +6,23 @@ Vercel:  automatisch via vercel.json
 
 import os
 import time
+import secrets
 import requests
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session, redirect
 from dotenv import load_dotenv
 
 load_dotenv()
 
 app = Flask(__name__)
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "ropi-local-dev-secret-change-in-production")
 
-SHOPIFY_API_VERSION = "2026-04"
+SHOPIFY_API_VERSION   = "2026-04"
+SHOPIFY_CLIENT_ID     = os.getenv("SHOPIFY_CLIENT_ID", "")
+SHOPIFY_CLIENT_SECRET = os.getenv("SHOPIFY_CLIENT_SECRET", "")
+SHOPIFY_SCOPES        = "read_products,write_products"
 
-# ── Shopify ──────────────────────────────────────────────────────────────────
+
+# ── Shopify helpers ───────────────────────────────────────────────────────────
 
 def shopify_headers(token):
     return {"X-Shopify-Access-Token": token, "Content-Type": "application/json"}
@@ -60,7 +66,7 @@ def add_image_to_shopify(store_url, token, product_id, image_url, position):
     return True
 
 
-# ── Bol.com ──────────────────────────────────────────────────────────────────
+# ── Bol.com helpers ───────────────────────────────────────────────────────────
 
 def get_bol_token(client_id, client_secret):
     resp = requests.post(
@@ -97,37 +103,118 @@ def get_bol_images(ean, bol_token):
     return images
 
 
-# ── Routes ───────────────────────────────────────────────────────────────────
+# ── OAuth routes ──────────────────────────────────────────────────────────────
+
+@app.route("/auth/login", methods=["POST"])
+def auth_login():
+    """Stap 1: genereer OAuth URL en stuur die terug naar de frontend."""
+    store_url = request.json.get("store_url", "").strip().rstrip("/").replace("https://", "").replace("http://", "")
+    if not store_url:
+        return jsonify({"error": "Vul je store URL in"}), 400
+    if not SHOPIFY_CLIENT_ID:
+        return jsonify({"error": "SHOPIFY_CLIENT_ID niet ingesteld op de server"}), 500
+
+    state = secrets.token_hex(16)
+    session["oauth_state"]  = state
+    session["store_url"]    = store_url
+
+    # Redirect URI is altijd onze eigen /auth/callback
+    redirect_uri = request.host_url.rstrip("/") + "/auth/callback"
+
+    auth_url = (
+        f"https://{store_url}/admin/oauth/authorize"
+        f"?client_id={SHOPIFY_CLIENT_ID}"
+        f"&scope={SHOPIFY_SCOPES}"
+        f"&redirect_uri={redirect_uri}"
+        f"&state={state}"
+    )
+    return jsonify({"auth_url": auth_url})
+
+
+@app.route("/auth/callback")
+def auth_callback():
+    """Stap 2: Shopify redirect — wissel code in voor access token."""
+    code      = request.args.get("code", "")
+    state     = request.args.get("state", "")
+    shop      = request.args.get("shop", "")
+    hmac_val  = request.args.get("hmac", "")
+
+    if state != session.get("oauth_state"):
+        return render_template("error.html", message="Ongeldige OAuth state. Probeer opnieuw."), 400
+
+    store_url = session.get("store_url") or shop.replace(".myshopify.com", "") + ".myshopify.com"
+
+    try:
+        resp = requests.post(
+            f"https://{store_url}/admin/oauth/access_token",
+            json={
+                "client_id":     SHOPIFY_CLIENT_ID,
+                "client_secret": SHOPIFY_CLIENT_SECRET,
+                "code":          code,
+            },
+            timeout=15,
+        )
+        resp.raise_for_status()
+        token = resp.json()["access_token"]
+    except Exception as e:
+        return render_template("error.html", message=f"Token ophalen mislukt: {e}"), 500
+
+    session["shopify_token"] = token
+    session["store_url"]     = store_url
+    session.pop("oauth_state", None)
+
+    return redirect("/")
+
+
+@app.route("/auth/status")
+def auth_status():
+    """Geeft terug of er een actieve Shopify sessie is."""
+    token     = session.get("shopify_token")
+    store_url = session.get("store_url", "")
+    return jsonify({"connected": bool(token), "store_url": store_url})
+
+
+@app.route("/auth/logout", methods=["POST"])
+def auth_logout():
+    session.pop("shopify_token", None)
+    session.pop("store_url", None)
+    return jsonify({"ok": True})
+
+
+# ── Pagina routes ─────────────────────────────────────────────────────────────
 
 @app.route("/")
 def index():
     defaults = {
-        "store_url":       os.getenv("SHOPIFY_STORE_URL", ""),
-        "token":           os.getenv("SHOPIFY_ACCESS_TOKEN", ""),
-        "bol_client_id":   os.getenv("BOL_CLIENT_ID", ""),
+        "bol_client_id":     os.getenv("BOL_CLIENT_ID", ""),
         "bol_client_secret": os.getenv("BOL_CLIENT_SECRET", ""),
     }
     return render_template("index.html", defaults=defaults)
 
 
+# ── API routes ────────────────────────────────────────────────────────────────
+
 @app.route("/api/test-credentials", methods=["POST"])
 def test_credentials():
-    data = request.json
-    store_url  = data.get("store_url", "").strip().rstrip("/")
-    token      = data.get("token", "").strip()
+    token     = session.get("shopify_token")
+    store_url = session.get("store_url", "")
+    data      = request.json
     bol_id     = data.get("bol_client_id", "").strip()
     bol_secret = data.get("bol_client_secret", "").strip()
-    results = {}
+    results    = {}
 
-    try:
-        resp = requests.get(
-            f"https://{store_url}/admin/api/{SHOPIFY_API_VERSION}/shop.json",
-            headers=shopify_headers(token), timeout=10,
-        )
-        resp.raise_for_status()
-        results["shopify"] = {"ok": True, "name": resp.json().get("shop", {}).get("name", store_url)}
-    except Exception as e:
-        results["shopify"] = {"ok": False, "error": str(e)}
+    if token and store_url:
+        try:
+            resp = requests.get(
+                f"https://{store_url}/admin/api/{SHOPIFY_API_VERSION}/shop.json",
+                headers=shopify_headers(token), timeout=10,
+            )
+            resp.raise_for_status()
+            results["shopify"] = {"ok": True, "name": resp.json().get("shop", {}).get("name", store_url)}
+        except Exception as e:
+            results["shopify"] = {"ok": False, "error": str(e)}
+    else:
+        results["shopify"] = {"ok": False, "error": "Nog niet verbonden met Shopify"}
 
     try:
         get_bol_token(bol_id, bol_secret)
@@ -140,7 +227,6 @@ def test_credentials():
 
 @app.route("/api/bol-token", methods=["POST"])
 def api_bol_token():
-    """Haalt eenmalig een Bol.com OAuth token op. De frontend cached dit voor de hele sync."""
     data       = request.json
     bol_id     = data.get("bol_client_id", "").strip()
     bol_secret = data.get("bol_client_secret", "").strip()
@@ -155,14 +241,12 @@ def api_bol_token():
 
 @app.route("/api/products", methods=["POST"])
 def api_products():
-    """Geeft alle Shopify producten terug als platte lijst."""
-    data       = request.json
-    store_url  = data.get("store_url", "").strip().rstrip("/")
-    token      = data.get("token", "").strip()
-    test_mode  = data.get("test_mode", False)
+    token     = session.get("shopify_token")
+    store_url = session.get("store_url", "")
+    if not token or not store_url:
+        return jsonify({"error": "Niet verbonden met Shopify"}), 401
 
-    if not store_url or not token:
-        return jsonify({"error": "Ontbrekende Shopify credentials"}), 400
+    test_mode = request.json.get("test_mode", False)
 
     try:
         raw = get_all_shopify_products(store_url, token)
@@ -193,14 +277,16 @@ def api_products():
 
 @app.route("/api/sync-product", methods=["POST"])
 def api_sync_product():
-    """Synchroniseert de afbeeldingen van één product. Stateless — credentials meegestuurd vanuit de browser."""
-    data        = request.json
-    store_url   = data.get("store_url", "").strip().rstrip("/")
-    token       = data.get("token", "").strip()
-    bol_token   = data.get("bol_token", "").strip()   # pre-fetched door de frontend
-    product_id  = data.get("product_id")
-    ean         = data.get("ean", "").strip()
-    dry_run     = data.get("dry_run", False)
+    token     = session.get("shopify_token")
+    store_url = session.get("store_url", "")
+    if not token or not store_url:
+        return jsonify({"error": "Niet verbonden met Shopify"}), 401
+
+    data       = request.json
+    bol_token  = data.get("bol_token", "").strip()
+    product_id = data.get("product_id")
+    ean        = data.get("ean", "").strip()
+    dry_run    = data.get("dry_run", False)
 
     if not ean:
         return jsonify({"status": "no_ean", "added": 0, "skipped": 0})
