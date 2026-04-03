@@ -80,25 +80,57 @@ BOL_HEADERS = {
 }
 
 
+def _to_highres(url):
+    """Zet een Bol.com afbeeldings-URL om naar de hoogste resolutie variant."""
+    # Bol.com patroon: .../images/xxx/400x400/... of .../thumb/... → vervang door 1600x1600
+    url = re.sub(r'/\d+x\d+/', '/1600x1600/', url)
+    url = re.sub(r'_\d+x\d+\.', '_1600x1600.', url)
+    # Verwijder Bol.com resize query params
+    url = re.sub(r'\?.*$', '', url)
+    return url
+
+
 def _extract_images_from_html(html):
-    """Haal afbeeldingen uit JSON-LD of og:image van een Bol.com pagina."""
+    """Haal hoogste-resolutie afbeeldingen uit een Bol.com pagina."""
     images = []
-    for m in re.findall(r'<script type="application/ld\+json">(.*?)</script>', html, re.DOTALL):
+
+    # Methode 1: media gallery JSON in paginastate (meest compleet, alle productfoto's)
+    for m in re.findall(r'"mediaGalleryItems"\s*:\s*(\[[^\]]+\])', html):
         try:
-            ld = _json.loads(m.strip())
-            for item in (ld if isinstance(ld, list) else [ld]):
-                if item.get("@type") == "Product":
-                    imgs = item.get("image", [])
-                    if isinstance(imgs, str):
-                        imgs = [imgs]
-                    images.extend(imgs)
+            items = _json.loads(m)
+            for item in items:
+                src = item.get("src") or item.get("url") or item.get("image")
+                if src and "bol.com" in src:
+                    images.append(_to_highres(src))
         except Exception:
             pass
+
+    # Methode 2: JSON-LD Product schema
+    if not images:
+        for m in re.findall(r'<script type="application/ld\+json">(.*?)</script>', html, re.DOTALL):
+            try:
+                ld = _json.loads(m.strip())
+                for item in (ld if isinstance(ld, list) else [ld]):
+                    if item.get("@type") == "Product":
+                        imgs = item.get("image", [])
+                        if isinstance(imgs, str):
+                            imgs = [imgs]
+                        images.extend([_to_highres(i) for i in imgs])
+            except Exception:
+                pass
+
+    # Methode 3: alle s-bol.com / img.s-bol.com afbeeldingen in de HTML
+    if not images:
+        found = re.findall(r'https://(?:img\.s-bol\.com|media\.s-bol\.com|s-bol\.com)/[^\s"\'<>]+\.(?:jpg|jpeg|png|webp)', html)
+        images = list(dict.fromkeys([_to_highres(u) for u in found]))  # uniek, volgorde behouden
+
+    # Methode 4: og:image fallback
     if not images:
         og = re.search(r'<meta property="og:image" content="([^"]+)"', html)
         if og:
-            images = [og.group(1)]
-    return images
+            images = [_to_highres(og.group(1))]
+
+    return list(dict.fromkeys(images))  # dedupliceer
 
 
 def _bol_get(url, retries=2):
@@ -341,7 +373,8 @@ def api_sync_product():
 
     added   = 0
     skipped = 0
-    current_count = len(existing)
+    # Start altijd op positie 2 — positie 1 is de hoofdafbeelding, die nooit aanraken
+    next_position = max(len(existing) + 1, 2)
     errors  = []
 
     for img_url in bol_images:
@@ -351,10 +384,10 @@ def api_sync_product():
             continue
         if not dry_run:
             try:
-                position = current_count + added + 2
-                if add_image_to_shopify(store_url, token, product_id, img_url, position):
+                if add_image_to_shopify(store_url, token, product_id, img_url, next_position):
                     added += 1
-                time.sleep(0.3)
+                    next_position += 1
+                time.sleep(0.5)
             except Exception as e:
                 errors.append(str(e))
         else:
