@@ -108,22 +108,29 @@ def get_bol_images(ean, bol_token):
 @app.route("/auth/login", methods=["POST"])
 def auth_login():
     """Stap 1: genereer OAuth URL en stuur die terug naar de frontend."""
-    store_url = request.json.get("store_url", "").strip().rstrip("/").replace("https://", "").replace("http://", "")
+    data       = request.json
+    store_url  = data.get("store_url", "").strip().rstrip("/").replace("https://", "").replace("http://", "")
+    client_id  = data.get("client_id", "").strip() or SHOPIFY_CLIENT_ID
+    client_secret = data.get("client_secret", "").strip() or SHOPIFY_CLIENT_SECRET
+
     if not store_url:
         return jsonify({"error": "Vul je store URL in"}), 400
-    if not SHOPIFY_CLIENT_ID:
-        return jsonify({"error": "SHOPIFY_CLIENT_ID niet ingesteld op de server"}), 500
+    if not client_id:
+        return jsonify({"error": "Vul je Shopify Client ID in"}), 400
+    if not client_secret:
+        return jsonify({"error": "Vul je Shopify Client Secret in"}), 400
 
     state = secrets.token_hex(16)
-    session["oauth_state"]  = state
-    session["store_url"]    = store_url
+    session["oauth_state"]     = state
+    session["store_url"]       = store_url
+    session["client_id"]       = client_id
+    session["client_secret"]   = client_secret
 
-    # Redirect URI is altijd onze eigen /auth/callback
     redirect_uri = request.host_url.rstrip("/") + "/auth/callback"
 
     auth_url = (
         f"https://{store_url}/admin/oauth/authorize"
-        f"?client_id={SHOPIFY_CLIENT_ID}"
+        f"?client_id={client_id}"
         f"&scope={SHOPIFY_SCOPES}"
         f"&redirect_uri={redirect_uri}"
         f"&state={state}"
@@ -144,12 +151,15 @@ def auth_callback():
 
     store_url = session.get("store_url") or shop.replace(".myshopify.com", "") + ".myshopify.com"
 
+    client_id     = session.get("client_id")     or SHOPIFY_CLIENT_ID
+    client_secret = session.get("client_secret") or SHOPIFY_CLIENT_SECRET
+
     try:
         resp = requests.post(
             f"https://{store_url}/admin/oauth/access_token",
             json={
-                "client_id":     SHOPIFY_CLIENT_ID,
-                "client_secret": SHOPIFY_CLIENT_SECRET,
+                "client_id":     client_id,
+                "client_secret": client_secret,
                 "code":          code,
             },
             timeout=15,
