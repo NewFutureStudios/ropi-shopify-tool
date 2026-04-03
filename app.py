@@ -179,11 +179,28 @@ def get_bol_images(ean, bol_token):
         data = resp.json()
         images = []
         for asset in data.get("assets", []):
+            # Sla niet-afbeeldingen over (video, document, etc.)
+            if asset.get("type", "IMAGE") not in ("IMAGE", "image", ""):
+                continue
             variants = sorted(asset.get("variants", []), key=lambda v: v.get("width", 0), reverse=True)
             if variants:
                 images.append(variants[0]["url"])
         return images
     raise Exception("Bol.com rate limit: te veel verzoeken, probeer later opnieuw")
+
+
+def get_bol_images_raw(ean, bol_token):
+    """Retourneert de volledige raw API response voor debug doeleinden."""
+    headers = {
+        "Authorization": f"Bearer {bol_token}",
+        "Accept": "application/vnd.retailer.v10+json",
+    }
+    resp = requests.get(
+        f"https://api.bol.com/retailer/products/{ean}/assets",
+        headers=headers,
+        timeout=15,
+    )
+    return resp.status_code, resp.json() if resp.headers.get("content-type", "").startswith("application/") else resp.text
 
 
 # ── OAuth routes ──────────────────────────────────────────────────────────────
@@ -433,6 +450,37 @@ def api_sync_product():
         "total_bol": len(bol_images),
         "errors":    errors,
     })
+
+
+@app.route("/api/debug-ean", methods=["POST"])
+def api_debug_ean():
+    """Toont de volledige raw Bol.com API response voor een EAN — handig om te checken hoeveel assets er zijn."""
+    token     = session.get("shopify_token")
+    store_url = session.get("store_url", "")
+    if not token or not store_url:
+        return jsonify({"error": "Niet verbonden met Shopify"}), 401
+
+    data       = request.json or {}
+    ean        = data.get("ean", "").strip()
+    bol_token  = data.get("bol_token", "").strip()
+
+    if not ean:
+        return jsonify({"error": "Vul een EAN in"}), 400
+    if not bol_token:
+        return jsonify({"error": "Geen Bol.com token meegegeven"}), 400
+
+    try:
+        status_code, raw = get_bol_images_raw(ean, bol_token)
+        parsed = get_bol_images(ean, bol_token) if status_code == 200 else []
+        return jsonify({
+            "ean": ean,
+            "http_status": status_code,
+            "raw_response": raw,
+            "parsed_image_urls": parsed,
+            "image_count": len(parsed),
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
