@@ -6,8 +6,9 @@ Vercel:  automatisch via vercel.json
 
 import os
 import time
+import secrets
 import requests
-from flask import Flask, render_template, request, jsonify, session
+from flask import Flask, render_template, request, jsonify, session, redirect
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -15,7 +16,10 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "ropi-local-dev-secret-change-in-production")
 
-SHOPIFY_API_VERSION = "2026-04"
+SHOPIFY_API_VERSION   = "2026-04"
+SHOPIFY_CLIENT_ID     = os.getenv("SHOPIFY_CLIENT_ID", "")
+SHOPIFY_CLIENT_SECRET = os.getenv("SHOPIFY_CLIENT_SECRET", "")
+SHOPIFY_SCOPES        = "read_products,write_products"
 
 
 # ── Shopify helpers ───────────────────────────────────────────────────────────
@@ -99,36 +103,71 @@ def get_bol_images(ean, bol_token):
     return images
 
 
-# ── Auth routes ───────────────────────────────────────────────────────────────
+# ── OAuth routes ──────────────────────────────────────────────────────────────
 
-@app.route("/auth/token", methods=["POST"])
-def auth_token():
-    """Sla een direct Shopify access token op in de sessie."""
-    data      = request.json
-    store_url = data.get("store_url", "").strip().rstrip("/").replace("https://", "").replace("http://", "")
-    token     = data.get("access_token", "").strip()
+@app.route("/auth/login", methods=["POST"])
+def auth_login():
+    """Stap 1: genereer OAuth URL en stuur die terug naar de frontend."""
+    data       = request.json
+    store_url  = data.get("store_url", "").strip().rstrip("/").replace("https://", "").replace("http://", "")
+    client_id  = data.get("client_id", "").strip() or SHOPIFY_CLIENT_ID
+    client_secret = data.get("client_secret", "").strip() or SHOPIFY_CLIENT_SECRET
 
     if not store_url:
         return jsonify({"error": "Vul je store URL in"}), 400
-    if not token:
-        return jsonify({"error": "Vul je access token in"}), 400
+    if not client_id:
+        return jsonify({"error": "Vul je Shopify Client ID in"}), 400
+    if not client_secret:
+        return jsonify({"error": "Vul je Shopify Client Secret in"}), 400
 
-    # Snel valideren of het token werkt
+    state = secrets.token_hex(16)
+    session["oauth_state"]     = state
+    session["store_url"]       = store_url
+    session["client_id"]       = client_id
+    session["client_secret"]   = client_secret
+
+    redirect_uri = request.host_url.rstrip("/") + "/auth/callback"
+
+    auth_url = (
+        f"https://{store_url}/admin/oauth/authorize"
+        f"?client_id={client_id}"
+        f"&scope={SHOPIFY_SCOPES}"
+        f"&redirect_uri={redirect_uri}"
+        f"&state={state}"
+    )
+    return jsonify({"auth_url": auth_url})
+
+
+@app.route("/auth/callback")
+def auth_callback():
+    """Stap 2: Shopify redirect — wissel code in voor access token."""
+    code  = request.args.get("code", "")
+    state = request.args.get("state", "")
+    shop  = request.args.get("shop", "")
+
+    if state != session.get("oauth_state"):
+        return render_template("error.html", message="Ongeldige OAuth state. Probeer opnieuw."), 400
+
+    store_url     = session.get("store_url") or shop
+    client_id     = session.get("client_id")     or SHOPIFY_CLIENT_ID
+    client_secret = session.get("client_secret") or SHOPIFY_CLIENT_SECRET
+
     try:
-        resp = requests.get(
-            f"https://{store_url}/admin/api/{SHOPIFY_API_VERSION}/shop.json",
-            headers=shopify_headers(token),
-            timeout=10,
+        resp = requests.post(
+            f"https://{store_url}/admin/oauth/access_token",
+            json={"client_id": client_id, "client_secret": client_secret, "code": code},
+            timeout=15,
         )
         resp.raise_for_status()
-        shop_name = resp.json().get("shop", {}).get("name", store_url)
+        token = resp.json()["access_token"]
     except Exception as e:
-        return jsonify({"error": f"Token verificatie mislukt: {e}"}), 400
+        return render_template("error.html", message=f"Token ophalen mislukt: {e}"), 500
 
     session["shopify_token"] = token
     session["store_url"]     = store_url
+    session.pop("oauth_state", None)
 
-    return jsonify({"ok": True, "shop_name": shop_name, "store_url": store_url})
+    return redirect("/")
 
 
 @app.route("/auth/status")
