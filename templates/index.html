@@ -431,6 +431,7 @@
         <input type="password" id="bol_client_secret" placeholder="••••••••••••••••" value="{{ defaults.bol_client_secret }}" />
       </div>
 
+      <div id="cred-status" class="cred-status" style="display:none"></div>
       <button class="btn btn-secondary" id="test-btn" onclick="testCredentials()">Verbinding testen</button>
 
       <hr class="divider" />
@@ -555,8 +556,7 @@
 
     const btn = document.getElementById('connect-btn');
     btn.disabled = true;
-    const textNode = btn.querySelector('span') || btn.childNodes[btn.childNodes.length - 1];
-    if (textNode) textNode.textContent = ' Verbinden…';
+    btn.innerHTML = '<span>Verbinden…</span>';
 
     try {
       const resp = await fetch('/auth/login', {
@@ -564,7 +564,12 @@
         body: JSON.stringify({ store_url: storeUrl, client_id: clientId, client_secret: clientSecret }),
       });
       const data = await resp.json();
-      if (data.error) { alert(data.error); btn.disabled = false; if (textNode) textNode.textContent = ' Verbinden met Shopify'; return; }
+      if (data.error) {
+        alert(data.error);
+        btn.disabled = false;
+        btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><path d="M15.337 23.979l4.639-1.006s-1.668-11.27-1.678-11.34c-.011-.07-.07-.115-.13-.115-.058 0-1.08-.022-1.08-.022s-.64-.632-.88-.87v13.353zM12.74 7.026s-.432-.13-1.134-.13c-1.793 0-2.66 1.134-2.98 1.904-.727.204-1.454.406-2.182.61l-.001.012c-.003.084-.006.168-.006.253 0 2.07.903 3.8 2.37 4.977L9.33 23.9 15.78 22.3l-3.04-15.274zM13.53 4.8c0-.05-.003-.1-.003-.15-.003-1.48-.203-2.675-.558-3.63-.867.093-1.63.67-2.15 1.516.37.124.72.325 1.04.61.627.56 1.09 1.39 1.3 2.475l.372-.82zM11.14.28C9.91.607 8.97 1.898 8.43 3.773c.513-.162 1.073-.252 1.681-.252.22 0 .437.014.648.04C11.196 2.25 11.67 1.04 11.14.28z"/></svg><span> Verbinden met Shopify</span>';
+        return;
+      }
       window.location.href = data.auth_url;
     } catch(e) {
       alert('Fout: ' + e.message);
