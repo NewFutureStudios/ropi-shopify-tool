@@ -266,7 +266,7 @@ def api_products():
     for p in raw:
         ean = None
         for v in p.get("variants", []):
-            bc = v.get("barcode", "").strip()
+            bc = (v.get("barcode") or "").strip()
             if bc:
                 ean = bc
                 break
