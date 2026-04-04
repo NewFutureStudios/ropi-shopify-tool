@@ -338,6 +338,28 @@
     .tip-step-num { width: 17px; height: 17px; border-radius: 50%; background: var(--accent-dim); color: var(--accent2); font-size: 10px; font-weight: 800; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(232,68,59,0.2); }
 
     /* ── Shopify connect ── */
+    /* ── EAN Tester ── */
+    .ean-result-box {
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: 10px;
+      padding: 14px;
+      font-size: 12.5px;
+    }
+    .ean-result-box.success { border-color: rgba(74,222,128,0.35); background: rgba(74,222,128,0.05); }
+    .ean-result-box.error   { border-color: rgba(232,68,59,0.35);  background: rgba(232,68,59,0.05); }
+    .ean-result-box.warn    { border-color: rgba(245,158,11,0.35); background: rgba(245,158,11,0.05); }
+    .ean-result-title { font-weight: 700; font-size: 13px; margin-bottom: 8px; }
+    .ean-stat-row { display:flex; gap:10px; margin: 10px 0; flex-wrap:wrap; }
+    .ean-stat { text-align:center; flex:1; min-width:55px; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:7px 5px; }
+    .ean-stat .n { font-size:18px; font-weight:800; color:var(--accent2); }
+    .ean-stat .l { font-size:10px; color:var(--text-muted); margin-top:2px; }
+    .ean-thumbs { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
+    .ean-thumb { width:54px; height:54px; border-radius:7px; object-fit:cover; border:1px solid var(--border2); background:var(--surface); }
+    .ean-link { display:inline-block; margin-top:10px; font-size:11.5px; color:var(--accent2); text-decoration:none; }
+    .ean-link:hover { text-decoration:underline; }
+    .ean-spinner { display:inline-block; width:14px; height:14px; border:2px solid var(--accent-dim); border-top-color:var(--accent); border-radius:50%; animation:spin 0.7s linear infinite; vertical-align:middle; margin-right:6px; }
+
     .btn-shopify {
       width: 100%; padding: 11px; border-radius: 10px; border: none;
       background: #96BF48; color: #fff; font-size: 14px; font-weight: 700;
@@ -455,6 +477,32 @@
       </div>
 
       <button class="btn btn-primary" id="start-btn" onclick="startSync(false)" disabled>Sync starten</button>
+    </div>
+
+    <!-- ── EAN Tester ─────────────────────────────────────────────────────── -->
+    <div class="card" style="margin-top: 16px;">
+      <div class="section-label-row">
+        <div class="card-title" style="margin-bottom:0">🔍 Test één EAN</div>
+        <i class="info-icon" data-tip="ean-tester">i</i>
+      </div>
+
+      <div class="field">
+        <label>EAN-code</label>
+        <input type="text" id="test-ean-input" placeholder="bijv. 8712345678901" maxlength="14" />
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+        <div class="toggle-btn" id="toggle-ean-dryrun" onclick="toggleEanOption('dryrun')" style="flex:1;font-size:11.5px;">
+          👁 Dry run
+        </div>
+        <div class="toggle-btn" id="toggle-ean-create" onclick="toggleEanOption('create')" style="flex:1;font-size:11.5px;">
+          ➕ Testproduct
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="ean-test-btn" onclick="runEanTest()" disabled>EAN testen</button>
+
+      <div id="ean-result" style="display:none; margin-top:16px;"></div>
     </div>
   </aside>
 
@@ -981,6 +1029,11 @@
       Producten zonder afbeeldingen op Bol.com, of producten zonder EAN in Shopify.`,
     'stat-errors': `<strong>Fouten</strong>
       Iets ging mis. Bekijk het logboek voor details en probeer opnieuw.`,
+    'ean-tester': `<strong>Test één EAN</strong>
+      Vul één EAN in om te controleren of alles correct werkt voordat je de volledige sync draait.
+      <div class="tip-step"><div class="tip-step-num">1</div><div>Vul een EAN in van een product met meerdere foto's op Bol</div></div>
+      <div class="tip-step"><div class="tip-step-num">2</div><div><em>Dry run</em> = bekijk resultaat zonder iets op te slaan</div></div>
+      <div class="tip-step"><div class="tip-step-num">3</div><div><em>Testproduct</em> = maakt een nieuw concept-product aan in Shopify als het EAN niet bestaat</div></div>`,
   };
 
   const tooltipEl = document.getElementById('tooltip');
@@ -1013,6 +1066,120 @@
   });
   document.addEventListener('click', hideTip);
   window.addEventListener('scroll', () => { if (activeIcon) positionTip(activeIcon); }, true);
+
+  // ── EAN Tester ─────────────────────────────────────────────────────────────
+  let eanDryRun = false;
+  let eanCreate = false;
+
+  function toggleEanOption(opt) {
+    if (opt === 'dryrun') {
+      eanDryRun = !eanDryRun;
+      document.getElementById('toggle-ean-dryrun').classList.toggle('active', eanDryRun);
+    } else {
+      eanCreate = !eanCreate;
+      document.getElementById('toggle-ean-create').classList.toggle('active', eanCreate);
+    }
+  }
+
+  // Activeer EAN test knop zodra er iets ingevuld is + Shopify verbonden
+  document.getElementById('test-ean-input').addEventListener('input', function() {
+    const connected = document.getElementById('connected-block') &&
+                      document.getElementById('connected-block').style.display !== 'none';
+    document.getElementById('ean-test-btn').disabled = !this.value.trim();
+  });
+
+  async function runEanTest() {
+    const ean = document.getElementById('test-ean-input').value.trim();
+    if (!ean) return;
+
+    const btn    = document.getElementById('ean-test-btn');
+    const result = document.getElementById('ean-result');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="ean-spinner"></span> Bezig…';
+    result.style.display = 'block';
+    result.innerHTML = `<div class="ean-result-box"><span class="ean-spinner"></span> Bol.com afbeeldingen ophalen voor <strong>${ean}</strong>…</div>`;
+
+    // Zorg voor Bol.com token
+    const bolId     = document.getElementById('bol_client_id').value.trim();
+    const bolSecret = document.getElementById('bol_client_secret').value.trim();
+    let bolToken = '';
+
+    if (bolId && bolSecret) {
+      try {
+        const tr = await fetch('/api/bol-token', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ bol_client_id: bolId, bol_client_secret: bolSecret })
+        });
+        const td = await tr.json();
+        bolToken = td.token || '';
+      } catch(e) { /* ignore, server will report error */ }
+    }
+
+    try {
+      const resp = await fetch('/api/test-ean', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          ean, bol_token: bolToken,
+          dry_run: eanDryRun,
+          create_test_product: eanCreate
+        })
+      });
+      const d = await resp.json();
+      result.innerHTML = renderEanResult(d);
+    } catch(e) {
+      result.innerHTML = `<div class="ean-result-box error"><div class="ean-result-title">❌ Fout</div>${e.message}</div>`;
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = 'EAN testen';
+  }
+
+  function renderEanResult(d) {
+    if (d.error) {
+      return `<div class="ean-result-box error"><div class="ean-result-title">❌ Fout</div>${d.error}</div>`;
+    }
+    if (d.status === 'not_found_on_bol') {
+      return `<div class="ean-result-box warn"><div class="ean-result-title">⚠️ Niet gevonden op Bol.com</div>${d.message}</div>`;
+    }
+    if (d.status === 'not_in_shopify') {
+      const thumbs = (d.bol_images || []).slice(0, 8).map(u =>
+        `<img class="ean-thumb" src="${u}" onerror="this.style.display='none'">`
+      ).join('');
+      return `<div class="ean-result-box warn">
+        <div class="ean-result-title">⚠️ Niet in Shopify gevonden</div>
+        <p style="font-size:12px;color:var(--text-muted);margin:6px 0">${d.message}</p>
+        <div class="ean-stat-row">
+          <div class="ean-stat"><div class="n">${d.bol_image_count}</div><div class="l">Op Bol.com</div></div>
+        </div>
+        <div class="ean-thumbs">${thumbs}</div>
+        <p style="font-size:11px;color:var(--text-muted);margin-top:8px">Zet "➕ Testproduct" aan en test opnieuw om een concept-product aan te maken.</p>
+      </div>`;
+    }
+
+    // Success
+    const thumbs = (d.bol_images || []).slice(0, 10).map(u =>
+      `<img class="ean-thumb" src="${u}" onerror="this.style.display='none'">`
+    ).join('');
+    const dryLabel    = d.dry_run ? ' <span style="color:var(--yellow);font-size:11px">(dry run)</span>' : '';
+    const createdNote = d.created_product
+      ? `<p style="font-size:11.5px;color:var(--green);margin:6px 0">✅ Nieuw testproduct aangemaakt in Shopify (concept)</p>` : '';
+
+    return `<div class="ean-result-box success">
+      <div class="ean-result-title">✅ ${d.product_title}${dryLabel}</div>
+      ${createdNote}
+      <div class="ean-stat-row">
+        <div class="ean-stat"><div class="n" style="color:var(--green)">${d.added}</div><div class="l">Toegevoegd</div></div>
+        <div class="ean-stat"><div class="n">${d.skipped}</div><div class="l">Al aanwezig</div></div>
+        <div class="ean-stat"><div class="n">${d.bol_image_count}</div><div class="l">Op Bol.com</div></div>
+        <div class="ean-stat"><div class="n">${d.already_present}</div><div class="l">In Shopify</div></div>
+      </div>
+      <div class="ean-thumbs">${thumbs}</div>
+      ${d.product_url ? `<a class="ean-link" href="${d.product_url}" target="_blank">→ Bekijk product in Shopify ↗</a>` : ''}
+      ${d.failed && d.failed.length ? `<p style="color:var(--accent2);font-size:11.5px;margin-top:8px">⚠️ ${d.failed.length} afbeelding(en) mislukt</p>` : ''}
+    </div>`;
+  }
 </script>
 </body>
 </html>

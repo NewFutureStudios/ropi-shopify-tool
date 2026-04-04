@@ -495,6 +495,169 @@ def api_debug_ean():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/test-ean", methods=["POST"])
+def api_test_ean():
+    """
+    Test de sync voor één specifieke EAN:
+    1. Haal Bol.com afbeeldingen op
+    2. Zoek het product in Shopify op via EAN (barcode)
+    3. Maak optioneel een nieuw testproduct aan als er geen match is
+    4. Synchroniseer de afbeeldingen (tenzij dry_run)
+    5. Geef een uitgebreid resultaat terug incl. thumbnails
+    """
+    token     = session.get("shopify_token")
+    store_url = session.get("store_url", "")
+    if not token or not store_url:
+        return jsonify({"error": "Niet verbonden met Shopify"}), 401
+
+    data        = request.json or {}
+    ean         = data.get("ean", "").strip()
+    bol_token   = data.get("bol_token", "").strip()
+    dry_run     = data.get("dry_run", False)
+    create_test = data.get("create_test_product", False)
+
+    if not ean:
+        return jsonify({"error": "Vul een EAN-code in"}), 400
+    if not bol_token:
+        return jsonify({"error": "Geen Bol.com token — vul Bol.com credentials in en test de verbinding"}), 400
+
+    # ── Stap 1: Bol.com afbeeldingen ophalen ──────────────────────────────────
+    try:
+        bol_images = get_bol_images(ean, bol_token)
+    except Exception as e:
+        return jsonify({"error": f"Bol.com fout: {e}"}), 500
+
+    if not bol_images:
+        return jsonify({
+            "status": "not_found_on_bol",
+            "message": f"Geen afbeeldingen gevonden op Bol.com voor EAN {ean}. "
+                       "Controleer of dit product op Bol.com staat.",
+        })
+
+    # ── Stap 2: Zoek product in Shopify via EAN (barcode) ────────────────────
+    shopify_product = None
+    search_url = f"https://{store_url}/admin/api/{SHOPIFY_API_VERSION}/products.json"
+    try:
+        # Shopify heeft geen directe EAN-zoekfunctie; we zoeken via barcode-filter
+        resp = requests.get(
+            search_url,
+            headers=shopify_headers(token),
+            params={"limit": 250, "fields": "id,title,variants,images,image"},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        for p in resp.json().get("products", []):
+            for v in p.get("variants", []):
+                if (v.get("barcode") or "").strip() == ean:
+                    shopify_product = p
+                    break
+            if shopify_product:
+                break
+
+        # Doorzoek ook extra pagina's als niet gevonden
+        link = resp.headers.get("Link", "")
+        while not shopify_product and 'rel="next"' in link:
+            next_url = None
+            for part in link.split(","):
+                if 'rel="next"' in part:
+                    next_url = part.split(";")[0].strip().strip("<>")
+                    break
+            if not next_url:
+                break
+            resp = requests.get(next_url, headers=shopify_headers(token), timeout=15)
+            resp.raise_for_status()
+            for p in resp.json().get("products", []):
+                for v in p.get("variants", []):
+                    if (v.get("barcode") or "").strip() == ean:
+                        shopify_product = p
+                        break
+                if shopify_product:
+                    break
+            link = resp.headers.get("Link", "")
+    except Exception as e:
+        return jsonify({"error": f"Shopify zoekfout: {e}"}), 500
+
+    # ── Stap 3: Testproduct aanmaken als gewenst en niet gevonden ─────────────
+    created_product = False
+    if not shopify_product and create_test:
+        try:
+            payload = {
+                "product": {
+                    "title": f"[TEST] Product EAN {ean}",
+                    "status": "draft",
+                    "variants": [{"barcode": ean, "price": "0.00"}],
+                    "images": [{"src": bol_images[0]}],  # hoofdafbeelding = eerste Bol.com foto
+                }
+            }
+            resp = requests.post(
+                f"https://{store_url}/admin/api/{SHOPIFY_API_VERSION}/products.json",
+                headers=shopify_headers(token),
+                json=payload,
+                timeout=15,
+            )
+            resp.raise_for_status()
+            shopify_product = resp.json().get("product")
+            created_product = True
+            time.sleep(0.5)
+        except Exception as e:
+            return jsonify({"error": f"Testproduct aanmaken mislukt: {e}"}), 500
+
+    if not shopify_product:
+        return jsonify({
+            "status": "not_in_shopify",
+            "bol_images": bol_images,
+            "bol_image_count": len(bol_images),
+            "message": f"EAN {ean} niet gevonden in Shopify. Zet 'Testproduct aanmaken' aan om een nieuw product te maken.",
+        })
+
+    product_id    = shopify_product["id"]
+    product_title = shopify_product.get("title", "")
+    product_url   = f"https://{store_url}/admin/products/{product_id}"
+
+    # ── Stap 4: Afbeeldingen vergelijken en syncen ────────────────────────────
+    try:
+        existing = get_existing_image_srcs(store_url, token, product_id)
+    except Exception as e:
+        return jsonify({"error": f"Shopify afbeeldingen ophalen mislukt: {e}"}), 500
+
+    added   = 0
+    skipped = 0
+    failed  = []
+    next_position = max(len(existing) + 1, 2)  # nooit positie 1 overschrijven
+
+    for img_url in bol_images:
+        img_filename = img_url.split("/")[-1].split("?")[0]
+        if any(img_filename in ex for ex in existing):
+            skipped += 1
+            continue
+        if not dry_run:
+            try:
+                if add_image_to_shopify(store_url, token, product_id, img_url, next_position):
+                    added += 1
+                    next_position += 1
+                time.sleep(0.3)
+            except Exception as e:
+                failed.append({"url": img_url, "error": str(e)})
+        else:
+            added += 1
+
+    return jsonify({
+        "status":           "success",
+        "ean":              ean,
+        "product_id":       product_id,
+        "product_title":    product_title,
+        "product_url":      product_url,
+        "created_product":  created_product,
+        "dry_run":          dry_run,
+        "bol_image_count":  len(bol_images),
+        "bol_images":       bol_images,        # alle Bol.com URLs (voor preview)
+        "added":            added,
+        "skipped":          skipped,
+        "already_present":  len(existing),
+        "failed":           failed,
+    })
+
+
 if __name__ == "__main__":
     print("\n🚀 Ropi Shopify Tool draait op http://localhost:5000\n")
     app.run(debug=False, port=5000, threaded=True)
