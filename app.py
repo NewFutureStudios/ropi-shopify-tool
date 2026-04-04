@@ -108,15 +108,16 @@ def _to_highres(url):
     """
     url = re.sub(r'\?.*$', '', url)  # verwijder query params eerst
 
-    # API-patroon: /hash/500x700.jpg  →  /hash/2000x2000.jpg
+    # API-patroon: /hash/500x700.jpg  →  /hash/1200x1200.jpg
+    # 1200x1200 is het hoogste formaat dat Bol.com CDN genereert (bevestigd via paginabron)
     url = re.sub(
         r'/(\d+)x(\d+)\.(jpg|jpeg|png|webp)$',
-        r'/2000x2000.\3',
+        r'/1200x1200.\3',
         url,
         flags=re.IGNORECASE,
     )
-    # HTML-scrape patroon: /500x700/bestand.jpg  →  /2000x2000/bestand.jpg
-    url = re.sub(r'/\d+x\d+/', '/2000x2000/', url)
+    # HTML-scrape patroon: /500x700/bestand.jpg  →  /1200x1200/bestand.jpg
+    url = re.sub(r'/\d+x\d+/', '/1200x1200/', url)
 
     return url
 
