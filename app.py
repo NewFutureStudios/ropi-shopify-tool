@@ -195,7 +195,7 @@ def get_bol_images(ean, bol_token):
                 continue
             variants = sorted(asset.get("variants", []), key=lambda v: v.get("width", 0), reverse=True)
             if variants:
-                images.append(variants[0]["url"])
+                images.append(_to_highres(variants[0]["url"]))
         return images
     raise Exception("Bol.com rate limit: te veel verzoeken, probeer later opnieuw")
 
