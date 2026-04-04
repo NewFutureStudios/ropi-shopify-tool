@@ -7,9 +7,15 @@ Vercel:  automatisch via vercel.json
 import os
 import time
 import secrets
+import json as _json_module
 import requests
+from datetime import datetime
+from pathlib import Path
 from flask import Flask, render_template, request, jsonify, session, redirect
 from dotenv import load_dotenv
+
+SNAPSHOTS_DIR = Path(__file__).parent / "snapshots"
+SNAPSHOTS_DIR.mkdir(exist_ok=True)
 
 load_dotenv()
 
@@ -681,6 +687,167 @@ def api_test_ean():
         "skipped":          skipped,
         "already_present":  len(existing),
         "failed":           failed,
+    })
+
+
+# ── Snapshot routes ───────────────────────────────────────────────────────────
+
+@app.route("/api/snapshot/create", methods=["POST"])
+def snapshot_create():
+    """Maak een volledige snapshot van alle huidige Shopify productafbeeldingen."""
+    token     = session.get("shopify_token")
+    store_url = session.get("store_url", "")
+    if not token or not store_url:
+        return jsonify({"error": "Niet verbonden met Shopify"}), 401
+
+    products_snapshot = []
+    page_url = None
+    total    = 0
+
+    while True:
+        try:
+            raw, next_url = get_shopify_products_page(store_url, token, page_url)
+        except Exception as e:
+            return jsonify({"error": f"Shopify fout: {e}"}), 500
+
+        for p in raw:
+            images = []
+            for img in p.get("images", []):
+                images.append({
+                    "id":       img["id"],
+                    "position": img.get("position", 1),
+                    "src":      img["src"].split("?")[0],   # zonder resize params
+                })
+            products_snapshot.append({
+                "id":     p["id"],
+                "title":  p.get("title", ""),
+                "images": images,
+            })
+            total += 1
+
+        if not next_url:
+            break
+        page_url = next_url
+
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    filename  = f"snapshot_{timestamp}.json"
+    filepath  = SNAPSHOTS_DIR / filename
+
+    data = {
+        "created":    datetime.now().isoformat(),
+        "store_url":  store_url,
+        "total":      total,
+        "products":   products_snapshot,
+    }
+    filepath.write_text(_json_module.dumps(data, ensure_ascii=False, indent=2))
+
+    return jsonify({
+        "ok":       True,
+        "filename": filename,
+        "total":    total,
+        "created":  data["created"],
+    })
+
+
+@app.route("/api/snapshot/list", methods=["GET"])
+def snapshot_list():
+    """Geeft een lijst van beschikbare snapshots terug."""
+    snapshots = []
+    for f in sorted(SNAPSHOTS_DIR.glob("snapshot_*.json"), reverse=True):
+        try:
+            meta = _json_module.loads(f.read_text())
+            snapshots.append({
+                "filename": f.name,
+                "created":  meta.get("created", ""),
+                "total":    meta.get("total", 0),
+                "store_url": meta.get("store_url", ""),
+            })
+        except Exception:
+            pass
+    return jsonify({"snapshots": snapshots})
+
+
+@app.route("/api/snapshot/restore", methods=["POST"])
+def snapshot_restore():
+    """
+    Herstel één product vanuit een snapshot.
+    Verwijdert afbeeldingen die er ná de snapshot bij zijn gekomen,
+    voegt afbeeldingen terug die zijn verdwenen.
+    Wordt per product aangeroepen (zelfde patroon als sync-product).
+    """
+    token     = session.get("shopify_token")
+    store_url = session.get("store_url", "")
+    if not token or not store_url:
+        return jsonify({"error": "Niet verbonden met Shopify"}), 401
+
+    data       = request.json or {}
+    filename   = data.get("filename", "").strip()
+    product_id = data.get("product_id")
+    dry_run    = data.get("dry_run", False)
+
+    if not filename or not product_id:
+        return jsonify({"error": "Ontbrekende parameters"}), 400
+
+    filepath = SNAPSHOTS_DIR / filename
+    if not filepath.exists():
+        return jsonify({"error": "Snapshot niet gevonden"}), 404
+
+    # Laad snapshot data voor dit product
+    snapshot = _json_module.loads(filepath.read_text())
+    snap_product = next((p for p in snapshot["products"] if p["id"] == product_id), None)
+    if snap_product is None:
+        return jsonify({"status": "not_in_snapshot"})
+
+    snap_srcs = {img["src"].split("?")[0] for img in snap_product["images"]}
+
+    # Huidige afbeeldingen in Shopify
+    url = f"https://{store_url}/admin/api/{SHOPIFY_API_VERSION}/products/{product_id}/images.json"
+    try:
+        resp = requests.get(url, headers=shopify_headers(token), timeout=15)
+        resp.raise_for_status()
+        current_images = resp.json().get("images", [])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    current_srcs = {img["src"].split("?")[0]: img["id"] for img in current_images}
+
+    removed = 0
+    restored = 0
+    errors = []
+
+    if not dry_run:
+        # Verwijder afbeeldingen die er ná de snapshot bijgekomen zijn
+        for src, img_id in current_srcs.items():
+            if src not in snap_srcs:
+                try:
+                    del_url = f"https://{store_url}/admin/api/{SHOPIFY_API_VERSION}/products/{product_id}/images/{img_id}.json"
+                    requests.delete(del_url, headers=shopify_headers(token), timeout=15)
+                    removed += 1
+                    time.sleep(0.2)
+                except Exception as e:
+                    errors.append(str(e))
+
+        # Voeg afbeeldingen terug die verdwenen zijn
+        for img in snap_product["images"]:
+            src = img["src"].split("?")[0]
+            if src not in current_srcs:
+                try:
+                    add_image_to_shopify(store_url, token, product_id, src, img["position"])
+                    restored += 1
+                    time.sleep(0.2)
+                except Exception as e:
+                    errors.append(str(e))
+    else:
+        # Dry run: tel alleen
+        removed  = sum(1 for s in current_srcs if s not in snap_srcs)
+        restored = sum(1 for img in snap_product["images"] if img["src"].split("?")[0] not in current_srcs)
+
+    status = "ok" if not errors else "partial"
+    return jsonify({
+        "status":   status,
+        "removed":  removed,
+        "restored": restored,
+        "errors":   errors,
     })
 
 

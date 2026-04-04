@@ -352,6 +352,15 @@
     .tsrow-badge.no_ean    { background:rgba(107,114,128,0.1); color:var(--gray);   border:1px solid rgba(107,114,128,0.2); }
     .tsrow-badge.error     { background:rgba(232,68,59,0.1);   color:var(--accent2);border:1px solid rgba(232,68,59,0.25); }
 
+    /* ── Snapshot ── */
+    .snap-item { display:flex; align-items:center; gap:8px; padding:8px 10px; background:var(--surface2); border:1px solid var(--border2); border-radius:8px; margin-bottom:6px; font-size:12px; }
+    .snap-item:last-child { margin-bottom:0; }
+    .snap-meta { flex:1; min-width:0; }
+    .snap-date { font-weight:700; color:var(--text); }
+    .snap-sub  { font-size:11px; color:var(--text-muted); margin-top:1px; }
+    .snap-restore-btn { flex-shrink:0; padding:4px 10px; background:var(--accent-dim); border:1px solid rgba(232,68,59,0.3); border-radius:6px; color:var(--accent2); font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap; }
+    .snap-restore-btn:hover { background:rgba(232,68,59,0.2); }
+
     /* ── EAN Tester ── */
     .ean-result-box {
       background: var(--surface2);
@@ -522,6 +531,46 @@
       <button class="btn btn-primary" id="ean-test-btn" onclick="runEanTest()" disabled>EAN testen</button>
 
       <div id="ean-result" style="display:none; margin-top:16px;"></div>
+    </div>
+
+    <!-- ── Snapshot / Backup ──────────────────────────────────────────────── -->
+    <div class="card" style="margin-top:16px;">
+      <div class="section-label-row">
+        <div class="card-title" style="margin-bottom:0">📸 Backup & herstel</div>
+        <i class="info-icon" data-tip="snapshot">i</i>
+      </div>
+
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:14px;line-height:1.5">
+        Sla de huidige staat van alle Shopify afbeeldingen op. Gebruik dit vóór een grote sync zodat je altijd terug kunt.
+      </p>
+
+      <button class="btn btn-secondary" id="snapshot-btn" onclick="createSnapshot()" style="margin-top:0;margin-bottom:14px;">
+        📸 Maak snapshot nu
+      </button>
+
+      <div id="snapshot-status" style="display:none;margin-bottom:12px;"></div>
+
+      <div id="snapshot-list-wrap" style="display:none;">
+        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Beschikbare snapshots</div>
+        <div id="snapshot-list"></div>
+      </div>
+
+      <!-- Restore panel -->
+      <div id="restore-panel" style="display:none;margin-top:14px;padding:12px;background:rgba(232,68,59,0.06);border:1px solid rgba(232,68,59,0.2);border-radius:10px;">
+        <div style="font-size:12.5px;font-weight:700;margin-bottom:8px;">♻️ Herstel: <span id="restore-filename" style="color:var(--accent2)"></span></div>
+        <p style="font-size:11.5px;color:var(--text-muted);margin-bottom:10px;line-height:1.5">
+          Verwijdert foto's die ná de snapshot zijn toegevoegd en zet verdwenen foto's terug. Positie 1 blijft altijd intact.
+        </p>
+        <div style="display:flex;gap:8px;margin-bottom:10px;">
+          <div class="toggle-btn" id="toggle-restore-dry" onclick="toggleRestoreDry()" style="flex:1;font-size:11.5px;">👁 Dry run</div>
+        </div>
+        <button class="btn btn-primary" onclick="startRestore()" style="background:var(--accent);margin-bottom:8px;">♻️ Herstel starten</button>
+        <button onclick="document.getElementById('restore-panel').style.display='none'" style="width:100%;background:none;border:none;color:var(--text-muted);font-size:11.5px;cursor:pointer;padding:4px;">Annuleren</button>
+        <div id="restore-progress" style="display:none;margin-top:10px;">
+          <div class="progress-wrap" style="margin-bottom:6px;"><div class="progress-bar" id="restore-bar"></div></div>
+          <div id="restore-status" style="font-size:11.5px;color:var(--text-muted)"></div>
+        </div>
+      </div>
     </div>
   </aside>
 
@@ -1134,6 +1183,11 @@
       Producten zonder afbeeldingen op Bol.com, of producten zonder EAN in Shopify.`,
     'stat-errors': `<strong>Fouten</strong>
       Iets ging mis. Bekijk het logboek voor details en probeer opnieuw.`,
+    'snapshot': `<strong>Backup & herstel</strong>
+      Slaat de huidige staat van alle productafbeeldingen op in een JSON-bestand op de server.
+      <div class="tip-step"><div class="tip-step-num">1</div><div>Klik <em>Maak snapshot nu</em> vóór een grote sync</div></div>
+      <div class="tip-step"><div class="tip-step-num">2</div><div>Als er iets mis gaat, klik je op <em>Herstel</em> naast het snapshot</div></div>
+      <div class="tip-step"><div class="tip-step-num">3</div><div>Gebruik altijd eerst <em>Dry run</em> om te zien wat er teruggedraaid wordt</div></div>`,
     'ean-tester': `<strong>Test één EAN</strong>
       Vul één EAN in om te controleren of alles correct werkt voordat je de volledige sync draait.
       <div class="tip-step"><div class="tip-step-num">1</div><div>Vul een EAN in van een product met meerdere foto's op Bol</div></div>
@@ -1188,6 +1242,127 @@
     a.click();
     URL.revokeObjectURL(url);
   }
+
+  // ── Snapshot / Backup ─────────────────────────────────────────────────────
+  let activeSnapshot = null;
+  let restoreDry     = true;  // standaard dry run aan voor veiligheid
+
+  function toggleRestoreDry() {
+    restoreDry = !restoreDry;
+    document.getElementById('toggle-restore-dry').classList.toggle('active', restoreDry);
+  }
+  // Zet dry run standaard actief
+  window.addEventListener('load', () => {
+    document.getElementById('toggle-restore-dry').classList.add('active');
+  });
+
+  async function createSnapshot() {
+    const btn = document.getElementById('snapshot-btn');
+    const statusEl = document.getElementById('snapshot-status');
+    btn.disabled = true;
+    btn.textContent = '⏳ Bezig…';
+    statusEl.style.display = 'block';
+    statusEl.innerHTML = `<div style="font-size:12px;color:var(--text-muted)">Alle productafbeeldingen ophalen uit Shopify… (kan ~1 min duren)</div>`;
+
+    try {
+      const resp = await fetch('/api/snapshot/create', { method: 'POST' });
+      const d    = await resp.json();
+      if (d.error) throw new Error(d.error);
+      statusEl.innerHTML = `<div style="font-size:12px;padding:8px 11px;background:rgba(74,222,128,0.07);border:1px solid rgba(74,222,128,0.25);border-radius:8px;color:var(--green)">
+        ✅ Snapshot opgeslagen — ${d.total} producten, ${new Date(d.created).toLocaleString('nl-NL')}
+      </div>`;
+      loadSnapshotList();
+    } catch(e) {
+      statusEl.innerHTML = `<div style="font-size:12px;color:var(--accent2)">❌ ${e.message}</div>`;
+    }
+    btn.disabled = false;
+    btn.textContent = '📸 Maak snapshot nu';
+  }
+
+  async function loadSnapshotList() {
+    const resp = await fetch('/api/snapshot/list');
+    const d    = await resp.json();
+    const wrap = document.getElementById('snapshot-list-wrap');
+    const list = document.getElementById('snapshot-list');
+    if (!d.snapshots || d.snapshots.length === 0) { wrap.style.display = 'none'; return; }
+    wrap.style.display = 'block';
+    list.innerHTML = d.snapshots.map(s => {
+      const dt = new Date(s.created).toLocaleString('nl-NL', { dateStyle:'short', timeStyle:'short' });
+      return `<div class="snap-item">
+        <div class="snap-meta">
+          <div class="snap-date">${dt}</div>
+          <div class="snap-sub">${s.total} producten · ${s.filename}</div>
+        </div>
+        <button class="snap-restore-btn" onclick="openRestorePanel('${s.filename}', '${dt}')">♻️ Herstel</button>
+      </div>`;
+    }).join('');
+  }
+
+  function openRestorePanel(filename, label) {
+    activeSnapshot = filename;
+    document.getElementById('restore-filename').textContent = label;
+    document.getElementById('restore-panel').style.display  = 'block';
+    document.getElementById('restore-progress').style.display = 'none';
+    document.getElementById('restore-panel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  async function startRestore() {
+    if (!activeSnapshot) return;
+    const progEl  = document.getElementById('restore-progress');
+    const barEl   = document.getElementById('restore-bar');
+    const statEl  = document.getElementById('restore-status');
+    progEl.style.display = 'block';
+
+    // Haal productlijst op uit snapshot via list endpoint
+    const listResp = await fetch('/api/snapshot/list');
+    const listData = await listResp.json();
+    const snap     = listData.snapshots.find(s => s.filename === activeSnapshot);
+    if (!snap) { statEl.textContent = 'Snapshot niet gevonden'; return; }
+
+    // Haal alle products op uit Shopify om IDs te matchen
+    statEl.textContent = 'Producten ophalen…';
+    const products = [];
+    let pageUrl = null;
+    while (true) {
+      const resp = await fetch('/api/products', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ page_url: pageUrl })
+      });
+      const d = await resp.json();
+      products.push(...(d.products || []));
+      pageUrl = d.next_page_url;
+      if (!pageUrl) break;
+    }
+
+    let done = 0, removed = 0, restored = 0, errors = 0;
+    const total = products.length;
+
+    for (const p of products) {
+      barEl.style.width = ((done / total) * 100) + '%';
+      statEl.textContent = `${done}/${total} — ${p.title}`;
+
+      try {
+        const r = await fetch('/api/snapshot/restore', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ filename: activeSnapshot, product_id: p.id, dry_run: restoreDry })
+        });
+        const d = await r.json();
+        removed  += d.removed  || 0;
+        restored += d.restored || 0;
+        if (d.errors && d.errors.length) errors++;
+      } catch(e) { errors++; }
+
+      done++;
+      await new Promise(r => setTimeout(r, restoreDry ? 50 : 400));
+    }
+
+    barEl.style.width = '100%';
+    const dryLabel = restoreDry ? ' (dry run — niets gewijzigd)' : '';
+    statEl.innerHTML = `<span style="color:var(--green)">✅ Klaar${dryLabel} — ${removed} verwijderd, ${restored} teruggezet, ${errors} fouten</span>`;
+  }
+
+  // Laad snapshot lijst bij pagina load
+  window.addEventListener('load', loadSnapshotList);
 
   // ── EAN Tester ─────────────────────────────────────────────────────────────
   let eanDryRun = false;
