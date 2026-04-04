@@ -454,6 +454,11 @@
         <input type="password" id="bol_client_secret" placeholder="••••••••••••••••" value="{{ defaults.bol_client_secret }}" />
       </div>
 
+      <div id="save-indicator" style="display:none; justify-content:space-between; align-items:center; margin-bottom:10px; padding:7px 11px; background:rgba(74,222,128,0.06); border:1px solid rgba(74,222,128,0.2); border-radius:8px; font-size:11.5px;">
+        <span style="color:var(--green)">🔒 Opgeslagen in browser</span>
+        <button onclick="clearSavedCreds()" style="background:none;border:none;color:var(--text-muted);font-size:11px;cursor:pointer;padding:0;text-decoration:underline;">Wissen</button>
+      </div>
+
       <div id="cred-status" class="cred-status" style="display:none"></div>
       <button class="btn btn-secondary" id="test-btn" onclick="testCredentials()">Verbinding testen</button>
 
@@ -583,6 +588,44 @@
     };
   }
 
+  // ── Credentials opslaan in browser (localStorage) ─────────────────────────
+  const SAVE_KEY = 'ropi_credentials';
+  const SAVED_FIELDS = ['store_url', 'shopify_client_id', 'shopify_client_secret', 'bol_client_id', 'bol_client_secret'];
+
+  function saveCredentials() {
+    const data = {};
+    SAVED_FIELDS.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) data[id] = el.value;
+    });
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    document.getElementById('save-indicator').style.display = 'flex';
+  }
+
+  function loadCredentials() {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return;
+    try {
+      const data = JSON.parse(raw);
+      SAVED_FIELDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && data[id]) el.value = data[id];
+      });
+      document.getElementById('save-indicator').style.display = 'flex';
+    } catch(e) { /* corrupt data, ignore */ }
+  }
+
+  function clearSavedCreds() {
+    localStorage.removeItem(SAVE_KEY);
+    document.getElementById('save-indicator').style.display = 'none';
+  }
+
+  // Auto-save bij elke wijziging in een credentials veld
+  SAVED_FIELDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', saveCredentials);
+  });
+
   // ── Shopify OAuth ──────────────────────────────────────────────────────────
   async function checkAuthStatus() {
     const resp = await fetch('/auth/status');
@@ -661,7 +704,10 @@
   }
 
   // Check status bij laden
-  window.addEventListener('load', checkAuthStatus);
+  window.addEventListener('load', () => {
+    loadCredentials();
+    checkAuthStatus();
+  });
 
   function toggleOption(opt) {
     if (opt === 'test')   { testMode = !testMode;  document.getElementById('toggle-test').classList.toggle('active', testMode); }
