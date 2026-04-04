@@ -32,7 +32,10 @@
       background: var(--bg);
       color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      min-height: 100vh;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
 
     /* ── Header ── */
@@ -43,10 +46,8 @@
       display: flex;
       align-items: center;
       gap: 16px;
-      position: sticky;
-      top: 0;
       z-index: 100;
-      backdrop-filter: blur(12px);
+      flex-shrink: 0;
     }
     .logo {
       width: 38px; height: 38px;
@@ -71,15 +72,38 @@
 
     /* ── Layout ── */
     main {
+      flex: 1;
+      min-height: 0;
       max-width: 1120px;
+      width: 100%;
       margin: 0 auto;
-      padding: 28px 24px;
+      padding: 20px 24px;
       display: grid;
       grid-template-columns: 340px 1fr;
       gap: 20px;
-      align-items: start;
+      align-items: stretch;
+      overflow: hidden;
     }
-    @media (max-width: 820px) { main { grid-template-columns: 1fr; } }
+    @media (max-width: 820px) {
+      main { grid-template-columns: 1fr; overflow-y: auto; }
+      aside, section { height: auto; overflow-y: visible; }
+    }
+
+    /* Beide kolommen scrollen onafhankelijk */
+    aside, section {
+      height: 100%;
+      overflow-y: auto;
+      min-width: 0;
+      padding-bottom: 16px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border2) transparent;
+    }
+    aside::-webkit-scrollbar,
+    section::-webkit-scrollbar { width: 4px; }
+    aside::-webkit-scrollbar-track,
+    section::-webkit-scrollbar-track { background: transparent; }
+    aside::-webkit-scrollbar-thumb,
+    section::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
 
     /* ── Cards ── */
     .card {
@@ -173,7 +197,8 @@
     .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 
     /* ── Stats ── */
-    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+    @media (max-width: 640px) { .stats-row { grid-template-columns: repeat(2, 1fr); } }
     .stat-box {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -183,7 +208,7 @@
     }
     .stat-box:hover { border-color: var(--border2); }
     .stat-box .info-icon { position: absolute; top: 8px; right: 8px; }
-    .stat-num { font-size: 30px; font-weight: 800; line-height: 1; margin-bottom: 5px; font-variant-numeric: tabular-nums; }
+    .stat-num { font-size: clamp(22px, 2.2vw, 30px); font-weight: 800; line-height: 1; margin-bottom: 5px; font-variant-numeric: tabular-nums; }
     .stat-label { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
     .stat-added   .stat-num { color: var(--green); }
     .stat-skipped .stat-num { color: var(--accent2); }
@@ -230,8 +255,8 @@
     .status-text { font-size: 12.5px; color: var(--text-muted); margin-bottom: 14px; min-height: 18px; }
 
     /* ── Product feed ── */
-    #product-feed { display: flex; flex-direction: column; gap: 7px; max-height: 420px; overflow-y: auto; padding-right: 4px; }
-    #product-feed::-webkit-scrollbar { width: 5px; }
+    #product-feed { display: flex; flex-direction: column; gap: 7px; max-height: clamp(180px, 42dvh, 560px); overflow-y: auto; padding-right: 4px; }
+    #product-feed::-webkit-scrollbar { width: 4px; }
     #product-feed::-webkit-scrollbar-track { background: transparent; }
     #product-feed::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
 
@@ -787,7 +812,6 @@
     document.getElementById('shopify-disconnected').style.display = 'block';
     document.getElementById('shopify-connected').style.display    = 'none';
     document.getElementById('start-btn').disabled = true;
-    document.getElementById('resume-banner').style.display = 'none';
     document.getElementById('start-btn').style.display = 'block';
   }
 
@@ -864,7 +888,6 @@
 
     const startBtn = document.getElementById('start-btn');
     startBtn.disabled = true; startBtn.textContent = 'Starten…';
-    document.getElementById('resume-banner').style.display = 'none';
 
     stats.added = stats.skipped = stats.nobol = stats.errors = 0;
     nobolList = []; processedList = [];
@@ -887,10 +910,10 @@
     }
 
     try {
-      const resp = await fetch('/api/sync/start', {
+      const resp = await fetchWithTimeout('/api/sync/start', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bol_client_id: c.bol_client_id, bol_client_secret: c.bol_client_secret, dry_run: dryRun, test_mode: testMode }),
-      });
+      }, 15000);
       const d = await resp.json();
       if (!resp.ok) throw new Error(d.error || `HTTP ${resp.status}`);
       currentJobId = d.job_id;
@@ -908,12 +931,34 @@
     await pollSync();
   }
 
+  // Fetch met timeout helper
+  async function fetchWithTimeout(url, options = {}, ms = 10000) {
+    const ctrl = new AbortController();
+    const id = setTimeout(() => ctrl.abort(), ms);
+    try {
+      return await fetch(url, { ...options, signal: ctrl.signal });
+    } finally {
+      clearTimeout(id);
+    }
+  }
+
   async function pollSync() {
     if (!currentJobId) return;
     try {
-      const resp = await fetch(`/api/sync/status?job_id=${currentJobId}&since_log=${logCursor}&since_result=${resultCursor}`);
+      const resp = await fetchWithTimeout(
+        `/api/sync/status?job_id=${currentJobId}&since_log=${logCursor}&since_result=${resultCursor}`,
+        {}, 8000
+      );
       if (!resp.ok) return;
       const d = await resp.json();
+
+      // Server herstart: job verdwenen uit geheugen
+      if (d.status === 'idle') {
+        stopPolling();
+        showError('Server herstart gedetecteerd — start de sync opnieuw');
+        reset();
+        return;
+      }
 
       logCursor    = d.log_cursor    ?? logCursor;
       resultCursor = d.result_cursor ?? resultCursor;
