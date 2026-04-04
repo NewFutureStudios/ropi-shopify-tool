@@ -583,7 +583,7 @@ def api_test_ean():
         try:
             payload = {
                 "product": {
-                    "title": f"[TEST] Product EAN {ean}",
+                    "title": f"🧪 TEST TEST TEST — EAN {ean}",
                     "status": "draft",
                     "variants": [{"barcode": ean, "price": "0.00"}],
                     "images": [{"src": bol_images[0]}],  # hoofdafbeelding = eerste Bol.com foto
