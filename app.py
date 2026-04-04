@@ -58,14 +58,17 @@ def get_existing_image_srcs(store_url, token, product_id):
     return {img["src"].split("?")[0] for img in images}
 
 
-def add_image_to_shopify(store_url, token, product_id, image_url, position):
-    url = f"https://{store_url}/admin/api/{SHOPIFY_API_VERSION}/products/{product_id}/images.json"
-    payload = {"image": {"src": image_url, "position": position}}
-    resp = requests.post(url, headers=shopify_headers(token), json=payload, timeout=15)
-    if resp.status_code == 422:
-        return False
-    resp.raise_for_status()
-    return True
+def add_image_to_shopify(store_url, token, product_id, image_url, position, fallback_url=None):
+    """Voeg afbeelding toe aan Shopify. Probeert highres URL eerst, valt terug op original bij 422."""
+    api_url = f"https://{store_url}/admin/api/{SHOPIFY_API_VERSION}/products/{product_id}/images.json"
+    for url_to_try in filter(None, [image_url, fallback_url if fallback_url != image_url else None]):
+        payload = {"image": {"src": url_to_try, "position": position}}
+        resp = requests.post(api_url, headers=shopify_headers(token), json=payload, timeout=15)
+        if resp.status_code == 422:
+            continue   # probeer fallback
+        resp.raise_for_status()
+        return True
+    return False
 
 
 # ── Bol.com helpers ───────────────────────────────────────────────────────────
@@ -211,7 +214,8 @@ def get_bol_images(ean, bol_token):
                 continue
             variants = sorted(asset.get("variants", []), key=lambda v: v.get("width", 0), reverse=True)
             if variants:
-                images.append(_to_highres(variants[0]["url"]))
+                original = variants[0]["url"]
+                images.append({"original": original, "highres": _to_highres(original)})
         return images
     raise Exception("Bol.com rate limit: te veel verzoeken, probeer later opnieuw")
 
@@ -451,14 +455,17 @@ def api_sync_product():
     next_position = max(len(existing) + 1, 2)
     errors  = []
 
-    for img_url in bol_images:
-        img_filename = img_url.split("/")[-1].split("?")[0]
+    for img in bol_images:
+        highres  = img["highres"]
+        original = img["original"]
+        # Gebruik originele URL voor duplicate-check (bestandsnaam is altijd hetzelfde)
+        img_filename = original.split("/")[-1].split("?")[0]
         if any(img_filename in ex for ex in existing):
             skipped += 1
             continue
         if not dry_run:
             try:
-                if add_image_to_shopify(store_url, token, product_id, img_url, next_position):
+                if add_image_to_shopify(store_url, token, product_id, highres, next_position, fallback_url=original):
                     added += 1
                     next_position += 1
                 time.sleep(0.3)
@@ -504,7 +511,7 @@ def api_debug_ean():
             "ean": ean,
             "http_status": status_code,
             "raw_response": raw,
-            "parsed_image_urls": parsed,
+            "parsed_image_urls": [{"original": i["original"], "highres": i["highres"]} for i in parsed],
             "image_count": len(parsed),
         })
     except Exception as e:
@@ -602,7 +609,7 @@ def api_test_ean():
                     "title": f"🧪 TEST TEST TEST — EAN {ean}",
                     "status": "draft",
                     "variants": [{"barcode": ean, "price": "0.00"}],
-                    "images": [{"src": bol_images[0]}],  # hoofdafbeelding = eerste Bol.com foto
+                    "images": [{"src": bol_images[0]["highres"]}],  # hoofdafbeelding = eerste Bol.com foto
                 }
             }
             resp = requests.post(
@@ -621,7 +628,7 @@ def api_test_ean():
     if not shopify_product:
         return jsonify({
             "status": "not_in_shopify",
-            "bol_images": bol_images,
+            "bol_images": [i["original"] for i in bol_images],
             "bol_image_count": len(bol_images),
             "message": f"EAN {ean} niet gevonden in Shopify. Zet 'Testproduct aanmaken' aan om een nieuw product te maken.",
         })
@@ -641,19 +648,21 @@ def api_test_ean():
     failed  = []
     next_position = max(len(existing) + 1, 2)  # nooit positie 1 overschrijven
 
-    for img_url in bol_images:
-        img_filename = img_url.split("/")[-1].split("?")[0]
+    for img in bol_images:
+        highres  = img["highres"]
+        original = img["original"]
+        img_filename = original.split("/")[-1].split("?")[0]
         if any(img_filename in ex for ex in existing):
             skipped += 1
             continue
         if not dry_run:
             try:
-                if add_image_to_shopify(store_url, token, product_id, img_url, next_position):
+                if add_image_to_shopify(store_url, token, product_id, highres, next_position, fallback_url=original):
                     added += 1
                     next_position += 1
                 time.sleep(0.3)
             except Exception as e:
-                failed.append({"url": img_url, "error": str(e)})
+                failed.append({"url": highres, "error": str(e)})
         else:
             added += 1
 
@@ -666,7 +675,7 @@ def api_test_ean():
         "created_product":  created_product,
         "dry_run":          dry_run,
         "bol_image_count":  len(bol_images),
-        "bol_images":       bol_images,        # alle Bol.com URLs (voor preview)
+        "bol_images":       [i["original"] for i in bol_images],   # originele URLs voor preview
         "added":            added,
         "skipped":          skipped,
         "already_present":  len(existing),
