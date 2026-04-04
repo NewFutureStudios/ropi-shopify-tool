@@ -523,6 +523,9 @@
     <div id="complete-banner" style="display:none" class="complete-banner">
       <span style="font-size:20px">✅</span>
       <span id="complete-text">Sync voltooid!</span>
+      <button id="export-nobol-btn" onclick="exportNobol()" style="display:none;margin-left:auto;padding:6px 14px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);border-radius:8px;color:var(--yellow);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">
+        ⬇ Exporteer "Niet op Bol" lijst
+      </button>
     </div>
     <div id="error-banner" style="display:none" class="error-banner"></div>
 
@@ -571,6 +574,7 @@
   let dryRun    = false;
   let running   = false;
   const stats   = { added: 0, skipped: 0, nobol: 0, errors: 0 };
+  let nobolList = []; // { title, ean, reden } per product dat niet gevonden is
 
   let bolToken       = null;
   let bolTokenExpiry = 0;
@@ -790,6 +794,8 @@
     document.getElementById('resume-banner').style.display = 'none';
 
     stats.added = stats.skipped = stats.nobol = stats.errors = 0;
+    nobolList = [];
+    document.getElementById('export-nobol-btn').style.display = 'none';
     updateStats();
     document.getElementById('progress-bar').style.width = '0%';
     document.getElementById('complete-banner').style.display = 'none';
@@ -887,6 +893,7 @@
 
       if (!p.ean) {
         stats.nobol++; updateStats();
+        nobolList.push({ title: p.title, ean: '(leeg)', reden: 'Geen EAN in Shopify' });
         setBadge(row, 'no_ean', 'Geen EAN');
         row.classList.add('no_ean');
         completed[p.id] = { status: 'no_ean', added: 0, skipped: 0 };
@@ -910,7 +917,7 @@
 
       if (result.status === 'success')   { stats.added += result.added; stats.skipped += result.skipped; }
       if (result.status === 'unchanged') { stats.skipped += result.skipped; }
-      if (result.status === 'no_bol')    { stats.nobol++; }
+      if (result.status === 'no_bol')    { stats.nobol++; nobolList.push({ title: p.title, ean: p.ean, reden: 'Geen afbeeldingen op Bol.com' }); }
       if (result.status === 'error')     { stats.errors++; }
       updateStats();
 
@@ -934,6 +941,9 @@
     document.getElementById('complete-banner').style.display = 'flex';
     document.getElementById('complete-text').textContent =
       `Sync voltooid! ${stats.added} afbeelding${stats.added !== 1 ? 'en' : ''} toegevoegd aan ${total} producten.`;
+    if (nobolList.length > 0) {
+      document.getElementById('export-nobol-btn').style.display = 'inline-block';
+    }
     log('ok', '🎉', `Klaar — ${stats.added} toegevoegd, ${stats.skipped} al aanwezig, ${stats.nobol} niet op Bol, ${stats.errors} fouten`);
     reset();
   }
@@ -1112,6 +1122,23 @@
   });
   document.addEventListener('click', hideTip);
   window.addEventListener('scroll', () => { if (activeIcon) positionTip(activeIcon); }, true);
+
+  // ── Export "Niet op Bol" lijst ─────────────────────────────────────────────
+  function exportNobol() {
+    if (!nobolList.length) return;
+
+    const lines = [
+      'Productnaam;EAN;Reden',
+      ...nobolList.map(r => `"${r.title.replace(/"/g,'""')}";"${r.ean}";"${r.reden}"`)
+    ];
+    const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `niet-op-bol-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   // ── EAN Tester ─────────────────────────────────────────────────────────────
   let eanDryRun = false;
