@@ -1268,8 +1268,11 @@
       const resp = await fetch('/api/snapshot/create', { method: 'POST' });
       const d    = await resp.json();
       if (d.error) throw new Error(d.error);
+      const githubBadge = d.github_ok
+        ? `<span style="margin-left:6px;font-size:10.5px;background:rgba(74,222,128,0.12);border:1px solid rgba(74,222,128,0.3);border-radius:5px;padding:2px 6px;">🔒 GitHub</span>`
+        : `<span style="margin-left:6px;font-size:10.5px;color:var(--yellow)" title="${d.github_err || ''}">⚠ Alleen lokaal</span>`;
       statusEl.innerHTML = `<div style="font-size:12px;padding:8px 11px;background:rgba(74,222,128,0.07);border:1px solid rgba(74,222,128,0.25);border-radius:8px;color:var(--green)">
-        ✅ Snapshot opgeslagen — ${d.total} producten, ${new Date(d.created).toLocaleString('nl-NL')}
+        ✅ Snapshot opgeslagen — ${d.total} producten, ${new Date(d.created).toLocaleString('nl-NL')} ${githubBadge}
       </div>`;
       loadSnapshotList();
     } catch(e) {
@@ -1288,10 +1291,14 @@
     wrap.style.display = 'block';
     list.innerHTML = d.snapshots.map(s => {
       const dt = new Date(s.created).toLocaleString('nl-NL', { dateStyle:'short', timeStyle:'short' });
+      const badges = [
+        s.local  ? `<span style="font-size:10px;background:var(--surface);border:1px solid var(--border2);border-radius:4px;padding:1px 5px;color:var(--text-muted)">VPS</span>` : '',
+        s.github ? `<span style="font-size:10px;background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.25);border-radius:4px;padding:1px 5px;color:var(--green)">🔒 GitHub</span>` : '',
+      ].filter(Boolean).join(' ');
       return `<div class="snap-item">
         <div class="snap-meta">
-          <div class="snap-date">${dt}</div>
-          <div class="snap-sub">${s.total} producten · ${s.filename}</div>
+          <div class="snap-date">${dt} ${badges}</div>
+          <div class="snap-sub">${s.total} producten</div>
         </div>
         <button class="snap-restore-btn" onclick="openRestorePanel('${s.filename}', '${dt}')">♻️ Herstel</button>
       </div>`;

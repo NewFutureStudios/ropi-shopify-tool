@@ -6,6 +6,7 @@ Vercel:  automatisch via vercel.json
 
 import os
 import time
+import base64
 import secrets
 import json as _json_module
 import requests
@@ -18,6 +19,72 @@ SNAPSHOTS_DIR = Path(__file__).parent / "snapshots"
 SNAPSHOTS_DIR.mkdir(exist_ok=True)
 
 load_dotenv()
+
+GITHUB_TOKEN         = os.getenv("GITHUB_TOKEN", "")
+GITHUB_SNAPSHOTS_REPO = os.getenv("GITHUB_SNAPSHOTS_REPO", "NewFutureStudios/ropi-snapshots")
+
+
+def _github_push_snapshot(filename, content_str):
+    """Push een snapshot JSON naar de private GitHub repo via de GitHub Contents API."""
+    if not GITHUB_TOKEN:
+        return False, "Geen GITHUB_TOKEN ingesteld"
+    url = f"https://api.github.com/repos/{GITHUB_SNAPSHOTS_REPO}/contents/snapshots/{filename}"
+    headers = {
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    encoded = base64.b64encode(content_str.encode()).decode()
+    # Check of bestand al bestaat (voor SHA bij update)
+    sha = None
+    existing = requests.get(url, headers=headers, timeout=10)
+    if existing.status_code == 200:
+        sha = existing.json().get("sha")
+
+    payload = {
+        "message": f"snapshot: {filename}",
+        "content": encoded,
+    }
+    if sha:
+        payload["sha"] = sha
+
+    resp = requests.put(url, headers=headers, json=payload, timeout=30)
+    if resp.status_code in (200, 201):
+        return True, resp.json().get("content", {}).get("html_url", "")
+    return False, resp.text
+
+
+def _github_list_snapshots():
+    """Haal de lijst van snapshot bestanden op uit de GitHub repo."""
+    if not GITHUB_TOKEN:
+        return []
+    url = f"https://api.github.com/repos/{GITHUB_SNAPSHOTS_REPO}/contents/snapshots"
+    headers = {
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    resp = requests.get(url, headers=headers, timeout=10)
+    if resp.status_code == 200:
+        return [f["name"] for f in resp.json() if f["name"].endswith(".json")]
+    return []
+
+
+def _github_download_snapshot(filename):
+    """Download en parseer een snapshot JSON uit de GitHub repo."""
+    if not GITHUB_TOKEN:
+        return None
+    url = f"https://api.github.com/repos/{GITHUB_SNAPSHOTS_REPO}/contents/snapshots/{filename}"
+    headers = {
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    resp = requests.get(url, headers=headers, timeout=15)
+    if resp.status_code != 200:
+        return None
+    content = base64.b64decode(resp.json()["content"]).decode()
+    return _json_module.loads(content)
 
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "ropi-local-dev-secret-change-in-production")
@@ -739,32 +806,65 @@ def snapshot_create():
         "total":      total,
         "products":   products_snapshot,
     }
-    filepath.write_text(_json_module.dumps(data, ensure_ascii=False, indent=2))
+    content_str = _json_module.dumps(data, ensure_ascii=False, indent=2)
+    filepath.write_text(content_str)
+
+    # Push naar private GitHub repo als backup
+    github_ok, github_info = _github_push_snapshot(filename, content_str)
 
     return jsonify({
-        "ok":       True,
-        "filename": filename,
-        "total":    total,
-        "created":  data["created"],
+        "ok":         True,
+        "filename":   filename,
+        "total":      total,
+        "created":    data["created"],
+        "github_ok":  github_ok,
+        "github_url": github_info if github_ok else None,
+        "github_err": github_info if not github_ok else None,
     })
 
 
 @app.route("/api/snapshot/list", methods=["GET"])
 def snapshot_list():
-    """Geeft een lijst van beschikbare snapshots terug."""
-    snapshots = []
+    """Geeft een lijst van beschikbare snapshots terug (lokaal + GitHub)."""
+    snapshots = {}
+
+    # Lokale snapshots
     for f in sorted(SNAPSHOTS_DIR.glob("snapshot_*.json"), reverse=True):
         try:
             meta = _json_module.loads(f.read_text())
-            snapshots.append({
-                "filename": f.name,
-                "created":  meta.get("created", ""),
-                "total":    meta.get("total", 0),
+            snapshots[f.name] = {
+                "filename":  f.name,
+                "created":   meta.get("created", ""),
+                "total":     meta.get("total", 0),
                 "store_url": meta.get("store_url", ""),
-            })
+                "local":     True,
+                "github":    False,
+            }
         except Exception:
             pass
-    return jsonify({"snapshots": snapshots})
+
+    # GitHub snapshots (vul aan wat lokaal mist)
+    for name in _github_list_snapshots():
+        if name in snapshots:
+            snapshots[name]["github"] = True
+        else:
+            # Alleen in GitHub, niet lokaal — haal metadata op
+            try:
+                data = _github_download_snapshot(name)
+                if data:
+                    snapshots[name] = {
+                        "filename":  name,
+                        "created":   data.get("created", ""),
+                        "total":     data.get("total", 0),
+                        "store_url": data.get("store_url", ""),
+                        "local":     False,
+                        "github":    True,
+                    }
+            except Exception:
+                pass
+
+    result = sorted(snapshots.values(), key=lambda s: s["created"], reverse=True)
+    return jsonify({"snapshots": result})
 
 
 @app.route("/api/snapshot/restore", methods=["POST"])
@@ -789,11 +889,16 @@ def snapshot_restore():
         return jsonify({"error": "Ontbrekende parameters"}), 400
 
     filepath = SNAPSHOTS_DIR / filename
-    if not filepath.exists():
-        return jsonify({"error": "Snapshot niet gevonden"}), 404
 
-    # Laad snapshot data voor dit product
-    snapshot = _json_module.loads(filepath.read_text())
+    # Probeer lokaal, anders van GitHub downloaden
+    if filepath.exists():
+        snapshot = _json_module.loads(filepath.read_text())
+    else:
+        snapshot = _github_download_snapshot(filename)
+        if snapshot is None:
+            return jsonify({"error": "Snapshot niet gevonden (lokaal noch GitHub)"}), 404
+        # Sla lokaal op voor snellere volgende aanroepen
+        filepath.write_text(_json_module.dumps(snapshot, ensure_ascii=False, indent=2))
     snap_product = next((p for p in snapshot["products"] if p["id"] == product_id), None)
     if snap_product is None:
         return jsonify({"status": "not_in_snapshot"})
