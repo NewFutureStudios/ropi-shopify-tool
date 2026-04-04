@@ -93,12 +93,28 @@ def get_bol_token(client_id, client_secret):
 
 
 def _to_highres(url):
-    """Zet een Bol.com afbeeldings-URL om naar de hoogste resolutie variant."""
-    # Bol.com patroon: .../images/xxx/400x400/... of .../thumb/... → vervang door 1600x1600
-    url = re.sub(r'/\d+x\d+/', '/1600x1600/', url)
-    url = re.sub(r'_\d+x\d+\.', '_1600x1600.', url)
-    # Verwijder Bol.com resize query params
-    url = re.sub(r'\?.*$', '', url)
+    """Haal de hoogste beschikbare resolutie op van een Bol.com CDN URL.
+
+    De API-URL heeft het formaat:
+        https://media.s-bol.com/{hash1}/{hash2}/500x700.jpg
+    De dimensie (500x700) IS de bestandsnaam — niet een pad-segment.
+
+    We vervangen die door 2000x2000: Bol.com CDN ondersteunt dynamische resize,
+    en bij 2000 is de kans groot dat we de volledige originele upload krijgen.
+    Als de originele upload kleiner is geeft het CDN de originele maat terug.
+    """
+    url = re.sub(r'\?.*$', '', url)  # verwijder query params eerst
+
+    # API-patroon: /hash/500x700.jpg  →  /hash/2000x2000.jpg
+    url = re.sub(
+        r'/(\d+)x(\d+)\.(jpg|jpeg|png|webp)$',
+        r'/2000x2000.\3',
+        url,
+        flags=re.IGNORECASE,
+    )
+    # HTML-scrape patroon: /500x700/bestand.jpg  →  /2000x2000/bestand.jpg
+    url = re.sub(r'/\d+x\d+/', '/2000x2000/', url)
+
     return url
 
 
