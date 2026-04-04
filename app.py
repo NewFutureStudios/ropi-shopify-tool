@@ -5,14 +5,17 @@ Vercel:  automatisch via vercel.json
 """
 
 import os
+import re
 import time
 import base64
 import secrets
+import threading
+import uuid
 import json as _json_module
 import requests
 from datetime import datetime
 from pathlib import Path
-from flask import Flask, render_template, request, jsonify, session, redirect
+from flask import Flask, render_template, request, jsonify, session, redirect, Response
 from dotenv import load_dotenv
 
 SNAPSHOTS_DIR = Path(__file__).parent / "snapshots"
@@ -20,8 +23,12 @@ SNAPSHOTS_DIR.mkdir(exist_ok=True)
 
 load_dotenv()
 
-GITHUB_TOKEN         = os.getenv("GITHUB_TOKEN", "")
+GITHUB_TOKEN          = os.getenv("GITHUB_TOKEN", "")
 GITHUB_SNAPSHOTS_REPO = os.getenv("GITHUB_SNAPSHOTS_REPO", "NewFutureStudios/ropi-snapshots")
+ROPI_API_KEY          = os.getenv("ROPI_API_KEY", "")  # voor remote control via Claude app
+
+# ── Server-side sync jobs ──────────────────────────────────────────────────────
+_sync_jobs = {}  # job_id -> dict (draait in background thread, onafhankelijk van browser)
 
 
 def _github_push_snapshot(filename, content_str):
@@ -144,9 +151,187 @@ def add_image_to_shopify(store_url, token, product_id, image_url, position, fall
     return False
 
 
+# ── Auth helper ───────────────────────────────────────────────────────────────
+
+def _auth_shopify():
+    """Geeft (store_url, shopify_token) terug via sessie of X-Ropi-Key header."""
+    api_key = request.headers.get("X-Ropi-Key", "")
+    if ROPI_API_KEY and api_key == ROPI_API_KEY:
+        return (
+            os.getenv("SHOPIFY_STORE_URL", session.get("store_url", "")),
+            os.getenv("SHOPIFY_ACCESS_TOKEN", session.get("shopify_token", "")),
+        )
+    return session.get("store_url", ""), session.get("shopify_token")
+
+
+# ── Server-side sync worker ────────────────────────────────────────────────────
+
+def _sync_worker(job_id, store_url, shopify_token, bol_client_id, bol_client_secret, dry_run, test_mode=False):
+    """Draait als daemon thread — volledig onafhankelijk van de browser."""
+    job = _sync_jobs[job_id]
+
+    def jlog(level, icon, msg):
+        job["logs"].append({"level": level, "icon": icon, "msg": msg})
+
+    # ── Stap 1: Bol.com token ophalen ─────────────────────────────────────────
+    try:
+        bol_token, expires_in = get_bol_token(bol_client_id, bol_client_secret)
+        bol_token_expires = time.time() + expires_in - 120
+        jlog("ok", "🔑", f"Bol.com token verkregen (geldig {expires_in // 60} min)")
+    except Exception as e:
+        job["status"] = "error"
+        job["error"] = f"Bol.com login mislukt: {e}"
+        return
+
+    # ── Stap 2: Shopify producten laden ───────────────────────────────────────
+    job["phase"] = "loading"
+    jlog("info", "🛍", "Shopify producten laden…")
+    products = []
+    page_url = None
+    page_num = 0
+    try:
+        while True:
+            page_num += 1
+            raw, next_url = get_shopify_products_page(store_url, shopify_token, page_url)
+            for p in raw:
+                ean = None
+                for v in p.get("variants", []):
+                    bc = (v.get("barcode") or "").strip()
+                    if bc:
+                        ean = bc
+                        break
+                img = p.get("image")
+                products.append({
+                    "id":    p["id"],
+                    "title": p.get("title", ""),
+                    "ean":   ean,
+                    "thumb": img["src"] if img else None,
+                })
+            if not next_url:
+                break
+            page_url = next_url
+            if page_num % 5 == 0:
+                jlog("info", "🛍", f"{len(products)} producten geladen…")
+    except Exception as e:
+        job["status"] = "error"
+        job["error"] = f"Shopify producten laden mislukt: {e}"
+        return
+
+    # Test-modus: alleen eerste 3 producten verwerken
+    if test_mode:
+        products = products[:3]
+        jlog("info", "⚡", f"Test-modus: alleen eerste {len(products)} producten")
+
+    job["total"]    = len(products)
+    job["products"] = products
+    job["phase"]    = "syncing"
+    job["status"]   = "running"
+    jlog("ok", "🛍", f"{len(products)} producten geladen — sync gestart")
+
+    # ── Stap 3: Per product syncen ────────────────────────────────────────────
+    for i, p in enumerate(products):
+        if job.get("stop_requested"):
+            job["status"] = "stopped"
+            jlog("warn", "⏹", "Sync gestopt door gebruiker")
+            return
+
+        job["progress"]        = i
+        job["current_product"] = p["title"]
+
+        # Auto-refresh Bol.com token vóór het verloopt
+        if time.time() > bol_token_expires:
+            try:
+                bol_token, expires_in = get_bol_token(bol_client_id, bol_client_secret)
+                bol_token_expires = time.time() + expires_in - 120
+                jlog("ok", "🔑", "Bol.com token automatisch vernieuwd")
+            except Exception as e:
+                jlog("warn", "🔑", f"Token vernieuwen mislukt: {e}")
+
+        if not p["ean"]:
+            job["stats"]["nobol"] += 1
+            job["nobol_list"].append({"title": p["title"], "ean": "(leeg)", "reden": "Geen EAN in Shopify"})
+            job["results"][str(p["id"])] = {"status": "no_ean", "added": 0, "skipped": 0}
+            continue
+
+        if dry_run:
+            # Dry run: geen Shopify writes → alleen Bol.com rate limit telt
+            time.sleep(0.8)
+        else:
+            # Echte sync: rustpauze elke 50 producten + 3 sec per product
+            if i > 0 and i % 50 == 0:
+                jlog("info", "⏸", f"Rustpauze na {i} producten (20 sec)…")
+                for _ in range(20):
+                    if job.get("stop_requested"):
+                        break
+                    time.sleep(1)
+            time.sleep(3)
+
+        try:
+            bol_images = get_bol_images(p["ean"], bol_token)
+        except Exception as e:
+            job["stats"]["errors"] += 1
+            job["results"][str(p["id"])] = {"status": "error", "added": 0, "skipped": 0, "message": str(e)}
+            jlog("error", "✗", f"{p['title']} — {e}")
+            continue
+
+        if not bol_images:
+            job["stats"]["nobol"] += 1
+            job["nobol_list"].append({"title": p["title"], "ean": p["ean"], "reden": "Geen afbeeldingen op Bol.com"})
+            job["results"][str(p["id"])] = {"status": "no_bol", "added": 0, "skipped": 0}
+            continue
+
+        try:
+            existing = get_existing_image_srcs(store_url, shopify_token, p["id"])
+        except Exception as e:
+            job["stats"]["errors"] += 1
+            job["results"][str(p["id"])] = {"status": "error", "added": 0, "skipped": 0, "message": str(e)}
+            continue
+
+        added         = 0
+        skipped       = 0
+        next_position = max(len(existing) + 1, 2)
+        errors_p      = []
+
+        for img in bol_images:
+            highres  = img["highres"]
+            original = img["original"]
+            img_filename = original.split("/")[-1].split("?")[0]
+            if any(img_filename in ex for ex in existing):
+                skipped += 1
+                continue
+            if not dry_run:
+                try:
+                    if add_image_to_shopify(store_url, shopify_token, p["id"], highres, next_position, fallback_url=original):
+                        added += 1
+                        next_position += 1
+                    time.sleep(0.3)
+                except Exception as e:
+                    errors_p.append(str(e))
+            else:
+                added += 1
+
+        job["stats"]["added"]   += added
+        job["stats"]["skipped"] += skipped
+
+        if errors_p and added == 0 and skipped == 0:
+            job["stats"]["errors"] += 1
+            job["results"][str(p["id"])] = {"status": "error", "added": 0, "skipped": skipped, "message": errors_p[0]}
+            jlog("error", "✗", f"{p['title']} — {errors_p[0]}")
+        elif added > 0:
+            job["results"][str(p["id"])] = {"status": "success", "added": added, "skipped": skipped}
+        else:
+            job["results"][str(p["id"])] = {"status": "unchanged", "added": 0, "skipped": skipped}
+
+    # ── Klaar ─────────────────────────────────────────────────────────────────
+    job["progress"]    = len(products)
+    job["status"]      = "done"
+    job["finished_at"] = datetime.utcnow().isoformat()
+    s = job["stats"]
+    jlog("ok", "🎉", f"Klaar — {s['added']} toegevoegd, {s['skipped']} al aanwezig, {s['nobol']} niet op Bol, {s['errors']} fouten")
+
+
 # ── Bol.com helpers ───────────────────────────────────────────────────────────
 
-import re
 import json as _json
 
 BOL_HEADERS = {
@@ -260,22 +445,43 @@ def get_bol_images(ean, bol_token):
         "Authorization": f"Bearer {bol_token}",
         "Accept": "application/vnd.retailer.v10+json",
     }
-    # Retry bij 429 (rate limit) met exponential backoff
-    for attempt in range(4):
-        resp = requests.get(
-            f"https://api.bol.com/retailer/products/{ean}/assets",
-            headers=headers,
-            params={"usage": "ADDITIONAL"},  # ← geeft alleen extra foto's terug, niet de PRIMARY
-            timeout=15,
-        )
+    # Retry bij 429/503/502/invalid JSON met exponential backoff
+    for attempt in range(5):
+        try:
+            resp = requests.get(
+                f"https://api.bol.com/retailer/products/{ean}/assets",
+                headers=headers,
+                params={"usage": "ADDITIONAL"},  # ← geeft alleen extra foto's terug, niet de PRIMARY
+                timeout=20,
+            )
+        except requests.exceptions.RequestException as e:
+            if attempt < 4:
+                time.sleep(5 * (attempt + 1))
+                continue
+            raise Exception(f"Bol.com verbindingsfout: {e}")
+
         if resp.status_code == 429:
-            wait = int(resp.headers.get("Retry-After", 10)) if attempt == 0 else (2 ** attempt) * 5
+            wait = int(resp.headers.get("Retry-After", 15)) if attempt == 0 else (2 ** attempt) * 8
             time.sleep(wait)
             continue
+        if resp.status_code in (502, 503, 504):
+            time.sleep(5 * (attempt + 1))
+            continue
+        if resp.status_code == 401:
+            raise Exception("BOL_TOKEN_EXPIRED")
         if resp.status_code == 404:
             return []
         resp.raise_for_status()
-        data = resp.json()
+
+        # Vang non-JSON responses op (bijv. HTML throttle-pagina)
+        try:
+            data = resp.json()
+        except ValueError:
+            snippet = resp.text[:200].replace("\n", " ")
+            if attempt < 4:
+                time.sleep(8 * (attempt + 1))
+                continue
+            raise Exception(f"Bol.com gaf geen geldig JSON (status {resp.status_code}): {snippet}")
 
         # Sorteer op carousel-volgorde zodat de afbeeldingen in de juiste volgorde in Shopify komen
         assets = sorted(data.get("assets", []), key=lambda a: a.get("order", 999))
@@ -500,19 +706,26 @@ def api_sync_product():
     if not token or not store_url:
         return jsonify({"error": "Niet verbonden met Shopify"}), 401
 
-    data       = request.json
-    bol_token  = data.get("bol_token", "").strip()
-    product_id = data.get("product_id")
-    ean        = data.get("ean", "").strip()
-    dry_run    = data.get("dry_run", False)
+    data          = request.json
+    bol_token     = data.get("bol_token", "").strip()
+    product_id    = data.get("product_id")
+    ean           = data.get("ean", "").strip()
+    dry_run       = data.get("dry_run", False)
+    product_index = int(data.get("product_index", 0))
 
     if not ean:
         return jsonify({"status": "no_ean", "added": 0, "skipped": 0})
 
-    time.sleep(1)  # 1 sec pauze per product — voorkomt Bol.com rate limit
+    # Elke 50 producten een langere rustpauze zodat de rate limit bucket kan herstellen
+    if product_index > 0 and product_index % 50 == 0:
+        time.sleep(20)
+
+    time.sleep(3)  # 3 sec pauze per product — voorkomt Bol.com rate limit
     try:
         bol_images = get_bol_images(ean, bol_token)
     except Exception as e:
+        if "BOL_TOKEN_EXPIRED" in str(e):
+            return jsonify({"status": "token_expired", "added": 0, "skipped": 0, "message": "Bol.com token verlopen"}), 401
         return jsonify({"status": "error", "added": 0, "skipped": 0, "message": str(e)}), 500
 
     if not bol_images:
@@ -559,6 +772,127 @@ def api_sync_product():
         "total_bol": len(bol_images),
         "errors":    errors,
     })
+
+
+# ── Server-side sync endpoints ────────────────────────────────────────────────
+
+@app.route("/api/sync/start", methods=["POST"])
+def api_sync_start():
+    store_url, shopify_token = _auth_shopify()
+    if not store_url or not shopify_token:
+        return jsonify({"error": "Niet verbonden met Shopify"}), 401
+
+    data       = request.json or {}
+    bol_id     = data.get("bol_client_id", "").strip()
+    bol_secret = data.get("bol_client_secret", "").strip()
+    dry_run    = data.get("dry_run", False)
+    test_mode  = data.get("test_mode", False)
+
+    if not bol_id or not bol_secret:
+        return jsonify({"error": "Bol.com Client ID en Secret zijn verplicht"}), 400
+
+    # Als er al een actieve sync is, geef het job_id terug zodat de browser er aan kan koppelen
+    for jid, job in _sync_jobs.items():
+        if job.get("status") in ("loading", "running"):
+            return jsonify({"job_id": jid, "status": "already_running", "message": "Sync was al actief — herverbonden"}), 200
+
+    job_id = str(uuid.uuid4())[:8]
+    _sync_jobs[job_id] = {
+        "status":          "loading",
+        "phase":           "loading",
+        "progress":        0,
+        "total":           0,
+        "current_product": "",
+        "stats":           {"added": 0, "skipped": 0, "nobol": 0, "errors": 0},
+        "logs":            [],
+        "results":         {},
+        "products":        [],
+        "nobol_list":      [],
+        "started_at":      datetime.utcnow().isoformat(),
+        "finished_at":     None,
+        "dry_run":         dry_run,
+        "test_mode":       test_mode,
+        "store_url":       store_url,
+    }
+
+    threading.Thread(
+        target=_sync_worker,
+        args=(job_id, store_url, shopify_token, bol_id, bol_secret, dry_run, test_mode),
+        daemon=True,
+    ).start()
+
+    return jsonify({"job_id": job_id, "status": "started"})
+
+
+@app.route("/api/sync/status")
+def api_sync_status_ep():
+    job_id = request.args.get("job_id", "")
+
+    # Geen job_id meegegeven → meest recente job teruggeven
+    if not job_id or job_id not in _sync_jobs:
+        if not _sync_jobs:
+            return jsonify({"status": "idle"})
+        job_id = max(_sync_jobs, key=lambda j: _sync_jobs[j].get("started_at", ""))
+
+    job         = _sync_jobs[job_id]
+    since_log   = int(request.args.get("since_log", 0))
+    since_res   = int(request.args.get("since_result", 0))
+    result_list = list(job["results"].items())
+
+    return jsonify({
+        "job_id":          job_id,
+        "status":          job["status"],
+        "phase":           job.get("phase", ""),
+        "progress":        job["progress"],
+        "total":           job["total"],
+        "current_product": job.get("current_product", ""),
+        "stats":           job["stats"],
+        "new_logs":        job["logs"][since_log:],
+        "new_results":     dict(result_list[since_res:]),
+        "log_cursor":      len(job["logs"]),
+        "result_cursor":   len(result_list),
+        "started_at":      job.get("started_at"),
+        "finished_at":     job.get("finished_at"),
+        "dry_run":         job.get("dry_run", False),
+        "error":           job.get("error"),
+        "products_count":  len(job.get("products", [])),
+        "nobol_count":     len(job.get("nobol_list", [])),
+    })
+
+
+@app.route("/api/sync/products")
+def api_sync_products_ep():
+    job_id = request.args.get("job_id", "")
+    if not job_id or job_id not in _sync_jobs:
+        return jsonify({"products": []})
+    return jsonify({"products": _sync_jobs[job_id].get("products", [])})
+
+
+@app.route("/api/sync/stop", methods=["POST"])
+def api_sync_stop():
+    data   = request.json or {}
+    job_id = data.get("job_id", "")
+    if job_id in _sync_jobs:
+        _sync_jobs[job_id]["stop_requested"] = True
+        return jsonify({"ok": True})
+    return jsonify({"error": "Job niet gevonden"}), 404
+
+
+@app.route("/api/sync/export-nobol")
+def api_sync_export_nobol():
+    job_id = request.args.get("job_id", "")
+    if not job_id or job_id not in _sync_jobs:
+        return jsonify({"error": "Job niet gevonden"}), 404
+    nobol = _sync_jobs[job_id].get("nobol_list", [])
+    lines = ["Titel,EAN,Reden"]
+    for item in nobol:
+        title = item["title"].replace('"', '""')
+        lines.append(f'"{title}","{item["ean"]}","{item["reden"]}"')
+    return Response(
+        "\n".join(lines),
+        mimetype="text/csv; charset=utf-8",
+        headers={"Content-Disposition": "attachment; filename=niet-op-bol.csv"},
+    )
 
 
 @app.route("/api/debug-ean", methods=["POST"])

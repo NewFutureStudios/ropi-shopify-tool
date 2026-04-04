@@ -204,6 +204,21 @@
       width: 0%;
       position: relative;
     }
+    /* Pulserende animatie tijdens laden (breedte onbekend) */
+    @keyframes indeterminate {
+      0%   { transform: translateX(-100%); }
+      100% { transform: translateX(400%); }
+    }
+    .progress-bar.loading {
+      width: 30% !important;
+      overflow: hidden;
+    }
+    .progress-bar.loading::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+      animation: indeterminate 1.4s ease-in-out infinite;
+    }
     .progress-bar::after {
       content: '';
       position: absolute; inset: 0;
@@ -496,15 +511,11 @@
         </div>
       </div>
 
-      <div class="resume-banner" id="resume-banner">
-        <p id="resume-text"></p>
-        <div class="resume-actions">
-          <button class="btn-do-resume" onclick="startSync(true)">↩ Hervatten</button>
-          <button class="btn-fresh" onclick="startSync(false)">↺ Opnieuw</button>
-        </div>
+      <button class="btn btn-primary" id="start-btn" onclick="startSync()" disabled>Sync starten</button>
+      <button class="btn btn-secondary" id="stop-btn" onclick="stopSyncJob()" style="display:none;margin-top:8px;background:rgba(239,68,68,0.1);border-color:rgba(239,68,68,0.3);color:#ef4444;">⏹ Sync stoppen</button>
+      <div id="server-running-badge" style="display:none;margin-top:10px;padding:8px 12px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:8px;font-size:11.5px;color:var(--green);text-align:center;">
+        🖥 Sync draait op server — browser mag dicht
       </div>
-
-      <button class="btn btn-primary" id="start-btn" onclick="startSync(false)" disabled>Sync starten</button>
     </div>
 
     <!-- ── EAN Tester ─────────────────────────────────────────────────────── -->
@@ -764,8 +775,10 @@
     document.getElementById('shopify-connected').style.display    = 'block';
     document.getElementById('connected-store-name').textContent   = storeUrl.replace('.myshopify.com', '');
     document.getElementById('connected-store-url').textContent    = storeUrl;
-    document.getElementById('start-btn').disabled = false;
-    checkResume();
+    // Niet re-enablen als een sync al loopt (auto-reconnect kan eerder zijn uitgevoerd)
+    if (!running) {
+      document.getElementById('start-btn').disabled = false;
+    }
   }
 
   function showDisconnected() {
@@ -829,222 +842,236 @@
     return bolToken;
   }
 
-  // ── Hervat-functie ─────────────────────────────────────────────────────────
-  function loadProgress() {
-    try { return JSON.parse(localStorage.getItem(resumeKey()) || 'null'); } catch { return null; }
-  }
-  function saveProgress(products, completed) {
-    localStorage.setItem(resumeKey(), JSON.stringify({ total: products.length, done: Object.keys(completed).length, completed, ts: Date.now() }));
-  }
+  // ── Voortgang (alleen nog gebruikt voor clearProgress) ────────────────────
+  function resumeKey() { return 'ropi_sync_' + connectedStoreUrl; }
+  function loadProgress() { return null; } // Niet meer gebruikt — sync draait server-side
+  function saveProgress() {}               // Niet meer gebruikt
   function clearProgress() { localStorage.removeItem(resumeKey()); }
+  function checkResume()   {}              // Resume banner verwijderd — server houdt state bij
 
-  function checkResume() {
-    if (!shopifyConnected) return;
-    const saved = loadProgress();
-    const banner = document.getElementById('resume-banner');
-    if (saved && saved.done < saved.total) {
-      const pct  = Math.round(saved.done / saved.total * 100);
-      const date = new Date(saved.ts).toLocaleString('nl-NL', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
-      document.getElementById('resume-text').textContent =
-        `Vorige sync (${date}) was ${pct}% klaar — ${saved.done} van ${saved.total} producten verwerkt.`;
-      banner.style.display = 'block';
-      document.getElementById('start-btn').style.display = 'none';
-    } else {
-      banner.style.display = 'none';
-      document.getElementById('start-btn').style.display = 'block';
-    }
-  }
+  // ── Server-side sync ──────────────────────────────────────────────────────
+  let currentJobId   = null;
+  let pollInterval   = null;
+  let logCursor      = 0;
+  let resultCursor   = 0;
+  let feedBuilt      = false;
+  let rowMap         = {};
+  let productsMap    = {};  // id -> product object
 
-  // ── Sync ───────────────────────────────────────────────────────────────────
-  async function startSync(resume = false) {
+  async function startSync() {
     if (running) return;
     running = true;
 
     const startBtn = document.getElementById('start-btn');
-    startBtn.disabled = true; startBtn.textContent = 'Bezig…';
+    startBtn.disabled = true; startBtn.textContent = 'Starten…';
     document.getElementById('resume-banner').style.display = 'none';
 
     stats.added = stats.skipped = stats.nobol = stats.errors = 0;
-    nobolList     = [];
-    processedList = [];
+    nobolList = []; processedList = [];
     document.getElementById('export-nobol-btn').style.display = 'none';
     document.getElementById('test-summary').style.display = 'none';
     updateStats();
-    document.getElementById('progress-bar').style.width = '0%';
+    const _pb = document.getElementById('progress-bar');
+    _pb.style.width = '0%'; _pb.classList.remove('loading');
     document.getElementById('complete-banner').style.display = 'none';
-    document.getElementById('error-banner').style.display   = 'none';
+    document.getElementById('error-banner').style.display = 'none';
     clearLog();
-    if (!resume) { clearProgress(); document.getElementById('product-feed').innerHTML = ''; }
+    clearProgress();
+    document.getElementById('product-feed').innerHTML = '';
+    logCursor = 0; resultCursor = 0; feedBuilt = false; rowMap = {}; productsMap = {};
 
-    let token;
-    try { token = await ensureBolToken(); }
-    catch (e) { showError(e.message); reset(); return; }
-
-    setStatus('Shopify producten ophalen…');
-    log('info', '🛍', 'Shopify producten ophalen…');
     if (!shopifyConnected) { showError('Verbind eerst met Shopify.'); reset(); return; }
+    const c = creds();
+    if (!c.bol_client_id || !c.bol_client_secret) {
+      showError('Vul Bol.com Client ID en Secret in.'); reset(); return;
+    }
 
-    // Haal producten op in pagina's (Vercel timeout-veilig)
-    let products = [];
-    let pageUrl  = null;
-    let pageNum  = 0;
     try {
-      while (true) {
-        pageNum++;
-        if (pageNum > 1) { setStatus(`Producten laden — pagina ${pageNum}…`); log('info', '🛍', `Pagina ${pageNum} ophalen…`); }
-        const resp = await fetch('/api/products', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ test_mode: testMode, page_url: pageUrl }),
-        });
-        const text = await resp.text();
-        let data;
-        try { data = JSON.parse(text); }
-        catch (_) {
-          const preview = text.substring(0, 200).replace(/</g,'&lt;');
-          log('err', '✗', `Server stuurde geen JSON (pagina ${pageNum}): ${text.substring(0,120)}`);
-          throw new Error(`Server fout (pagina ${pageNum}) — geen JSON. Status: ${resp.status}. Zie logboek.`);
-        }
-        if (!resp.ok) throw new Error(data.error || data.detail || `HTTP ${resp.status}`);
-        products = products.concat(data.products || []);
-        pageUrl  = data.next_page_url || null;
-        log('info', '🛍', `Pagina ${pageNum}: ${data.products.length} producten${pageUrl ? ', meer volgt…' : ', klaar'}`);
-        if (!pageUrl) break;
-      }
-    } catch (e) { showError(e.message); reset(); return; }
-
-    log('ok', '🛍', `Totaal ${products.length} producten geladen`);
-
-    const saved     = resume ? (loadProgress() || {}) : {};
-    const completed = saved.completed || {};
-
-    if (resume) {
-      for (const r of Object.values(completed)) {
-        if (r.added   > 0)  stats.added   += r.added;
-        if (r.skipped > 0)  stats.skipped += r.skipped;
-        if (r.status === 'no_bol' || r.status === 'no_ean') stats.nobol++;
-        if (r.status === 'error') stats.errors++;
-      }
-      updateStats();
-    }
-
-    const total = products.length;
-    setStatus(`${total} producten gevonden. Sync gestart…`);
-
-    const feed = document.getElementById('product-feed');
-    if (!resume) feed.innerHTML = '';
-    const rowMap = {};
-
-    for (const p of products) {
-      if (resume && completed[p.id]) {
-        const row = makeRow(p);
-        const r = completed[p.id];
-        row.classList.add('resumed', r.status);
-        setBadge(row, r.status, badgeLabel(r));
-        if (r.error) addErrorLine(row, r.error);
-        feed.appendChild(row);
-        rowMap[p.id] = row;
+      const resp = await fetch('/api/sync/start', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bol_client_id: c.bol_client_id, bol_client_secret: c.bol_client_secret, dry_run: dryRun, test_mode: testMode }),
+      });
+      const d = await resp.json();
+      if (!resp.ok) throw new Error(d.error || `HTTP ${resp.status}`);
+      currentJobId = d.job_id;
+      if (d.status === 'already_running') {
+        log('warn', '🔄', 'Sync was al actief op server — voortgang ophalen…');
       } else {
-        const row = makeRow(p);
-        feed.appendChild(row);
-        rowMap[p.id] = row;
+        log('ok', '🚀', '✅ Sync gestart op server — je kunt dit venster sluiten');
       }
+    } catch(e) { showError(e.message); reset(); return; }
+
+    document.getElementById('stop-btn').style.display = 'block';
+    document.getElementById('server-running-badge').style.display = 'block';
+    setStatus('Producten laden op server…');
+    pollInterval = setInterval(pollSync, 3000);
+    await pollSync();
+  }
+
+  async function pollSync() {
+    if (!currentJobId) return;
+    try {
+      const resp = await fetch(`/api/sync/status?job_id=${currentJobId}&since_log=${logCursor}&since_result=${resultCursor}`);
+      if (!resp.ok) return;
+      const d = await resp.json();
+
+      logCursor    = d.log_cursor    ?? logCursor;
+      resultCursor = d.result_cursor ?? resultCursor;
+
+      // Logs doorsturen naar logpaneel
+      for (const e of (d.new_logs || [])) {
+        const lvl = e.level === 'ok' ? 'ok' : e.level === 'error' ? 'err' : e.level === 'warn' ? 'warn' : 'dim';
+        log(lvl, e.icon || '•', e.msg);
+      }
+
+      // Stats bijwerken
+      if (d.stats) {
+        stats.added   = d.stats.added;
+        stats.skipped = d.stats.skipped;
+        stats.nobol   = d.stats.nobol;
+        stats.errors  = d.stats.errors;
+        updateStats();
+      }
+
+      // Productfeed bouwen zodra de server de productlijst heeft geladen
+      if (!feedBuilt && d.products_count > 0 && (d.phase === 'syncing' || d.status === 'done' || d.status === 'running')) {
+        feedBuilt = true;
+        try {
+          const pResp = await fetch(`/api/sync/products?job_id=${currentJobId}`);
+          const pData = await pResp.json();
+          const feed  = document.getElementById('product-feed');
+          feed.innerHTML = '';
+          rowMap = {}; productsMap = {};
+          for (const p of pData.products) {
+            const row = makeRow(p);
+            feed.appendChild(row);
+            rowMap[String(p.id)]     = row;
+            productsMap[String(p.id)] = p;
+          }
+        } catch(e) {}
+      }
+
+      // Productrijen bijwerken op basis van nieuwe resultaten
+      for (const [pid, result] of Object.entries(d.new_results || {})) {
+        const row = rowMap[pid];
+        const p   = productsMap[pid] || {};
+        if (row) {
+          row.classList.add(result.status);
+          setBadge(row, result.status, badgeLabel(result));
+          if (result.message) addErrorLine(row, result.message);
+        }
+        processedList.push({ title: p.title || '—', ean: p.ean || '—', thumb: p.thumb || null, status: result.status, added: result.added ?? 0, skipped: result.skipped ?? 0, message: result.message });
+      }
+
+      // Voortgangsbalk
+      const bar = document.getElementById('progress-bar');
+      if (d.phase === 'loading' || d.status === 'loading') {
+        bar.classList.add('loading');
+        setStatus('Shopify producten laden… (dit duurt ~1 minuut)');
+      } else if (d.total > 0) {
+        bar.classList.remove('loading');
+        bar.style.width = ((d.progress / d.total) * 100) + '%';
+        const pct = Math.round(d.progress / d.total * 100);
+        const mode = d.dry_run ? ' 👁 dry run' : '';
+        setStatus(`${d.progress} / ${d.total} (${pct}%)${mode} — ${d.current_product}`);
+      }
+
+      // Afgerond
+      if (d.status === 'done') {
+        _syncFinished(d);
+      } else if (d.status === 'error') {
+        stopPolling();
+        showError(d.error || 'Onbekende fout op server');
+        reset();
+      } else if (d.status === 'stopped') {
+        stopPolling();
+        setStatus('Gestopt');
+        log('warn', '⏹', 'Sync gestopt');
+        reset();
+      }
+    } catch(e) {
+      // Netwerk-onderbreking — blijf pollen, sync loopt nog op server
+      log('warn', '📡', 'Verbinding verbroken — opnieuw proberen…');
     }
+  }
 
-    let processed = Object.keys(completed).length;
-
-    for (let i = 0; i < products.length; i++) {
-      const p = products[i];
-      if (resume && completed[p.id]) continue;
-
-      const row = rowMap[p.id];
-      setBadge(row, 'processing', 'Laden…');
-      row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-
-      processed++;
-      document.getElementById('progress-bar').style.width = ((processed / total) * 100) + '%';
-      setStatus(`Verwerken ${processed} / ${total} — ${p.title}`);
-
-      if (!p.ean) {
-        stats.nobol++; updateStats();
-        nobolList.push({ title: p.title, ean: '(leeg)', reden: 'Geen EAN in Shopify' });
-        processedList.push({ title: p.title, ean: '(leeg)', thumb: p.thumb, status: 'no_ean', added: 0, skipped: 0 });
-        setBadge(row, 'no_ean', 'Geen EAN');
-        row.classList.add('no_ean');
-        completed[p.id] = { status: 'no_ean', added: 0, skipped: 0 };
-        saveProgress(products, completed);
-        log('warn', '⏭', `${p.title} — geen EAN`);
-        continue;
-      }
-
-      try { token = await ensureBolToken(); } catch(e) { /* gebruik bestaande */ }
-
-      let result;
-      try {
-        const resp = await fetch('/api/sync-product', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bol_token: token, product_id: p.id, ean: p.ean, dry_run: dryRun }),
-        });
-        result = await resp.json();
-      } catch (e) {
-        result = { status: 'error', added: 0, skipped: 0, message: e.message };
-      }
-
-      if (result.status === 'success')   { stats.added += result.added; stats.skipped += result.skipped; }
-      if (result.status === 'unchanged') { stats.skipped += result.skipped; }
-      if (result.status === 'no_bol')    { stats.nobol++; nobolList.push({ title: p.title, ean: p.ean, reden: 'Geen afbeeldingen op Bol.com' }); }
-      processedList.push({ title: p.title, ean: p.ean || '—', thumb: p.thumb, status: result.status, added: result.added ?? 0, skipped: result.skipped ?? 0, message: result.message });
-      if (result.status === 'error')     { stats.errors++; }
-      updateStats();
-
-      row.classList.add(result.status);
-      setBadge(row, result.status, badgeLabel(result));
-      if (result.message) addErrorLine(row, result.message);
-
-      if      (result.status === 'success')   log('ok',  '➕', `${p.title} — +${result.added} foto${result.added !== 1 ? "'s" : ''}, ${result.skipped} al aanwezig`);
-      else if (result.status === 'unchanged') log('dim', '✓',  `${p.title} — al up-to-date (${result.skipped}x)`);
-      else if (result.status === 'no_bol')    log('warn','⚠',  `${p.title} — niet op Bol.com (EAN: ${p.ean})`);
-      else if (result.status === 'error')     log('err', '✗',  `${p.title} — ${result.message}`);
-
-      completed[p.id] = { status: result.status, added: result.added ?? 0, skipped: result.skipped ?? 0, error: result.message };
-      saveProgress(products, completed);
-    }
-
+  function _syncFinished(d) {
+    stopPolling();
     document.getElementById('progress-bar').style.width = '100%';
     setStatus('Gereed');
     clearProgress();
-
     document.getElementById('complete-banner').style.display = 'flex';
     document.getElementById('complete-text').textContent =
-      `Sync voltooid! ${stats.added} afbeelding${stats.added !== 1 ? 'en' : ''} toegevoegd aan ${total} producten.`;
-    if (nobolList.length > 0) {
-      document.getElementById('export-nobol-btn').style.display = 'inline-block';
+      `Sync voltooid! ${d.stats.added} afbeeldingen toegevoegd aan ${d.total} producten.`;
+    if (d.nobol_count > 0) {
+      const btn = document.getElementById('export-nobol-btn');
+      btn.style.display = 'inline-block';
+      btn.onclick = () => { window.location.href = `/api/sync/export-nobol?job_id=${currentJobId}`; };
     }
-
-    // Toon altijd een overzicht van de verwerkte producten (handig bij test mode)
+    // Verwerkte producten overzicht
     if (processedList.length > 0) {
       const labelMap = {
         success:   r => `+${r.added} foto${r.added !== 1 ? "'s" : ''}`,
-        unchanged: r => `Al up-to-date`,
-        no_bol:    r => `Niet op Bol`,
-        no_ean:    r => `Geen EAN`,
-        error:     r => `Fout`,
+        unchanged: _r => 'Al up-to-date',
+        no_bol:    _r => 'Niet op Bol',
+        no_ean:    _r => 'Geen EAN',
+        error:     _r => 'Fout',
       };
-      const rows = processedList.map(r => `
+      document.getElementById('test-summary-rows').innerHTML = processedList.slice(0, 500).map(r => `
         <div class="tsrow">
           ${r.thumb ? `<img src="${r.thumb}" onerror="this.style.display='none'">` : '<div style="width:42px;height:42px;border-radius:7px;background:var(--surface2);border:1px solid var(--border2);flex-shrink:0"></div>'}
           <div class="tsrow-info">
-            <div class="tsrow-title">${r.title}</div>
-            <div class="tsrow-ean">EAN: ${r.ean}</div>
+            <div class="tsrow-title">${escHtml(r.title || '—')}</div>
+            <div class="tsrow-ean">EAN: ${escHtml(r.ean || '—')}</div>
           </div>
           <div class="tsrow-badge ${r.status}">${(labelMap[r.status] || (() => r.status))(r)}</div>
         </div>`).join('');
-      document.getElementById('test-summary-rows').innerHTML = rows;
       document.getElementById('test-summary').style.display = 'block';
     }
-
-    log('ok', '🎉', `Klaar — ${stats.added} toegevoegd, ${stats.skipped} al aanwezig, ${stats.nobol} niet op Bol, ${stats.errors} fouten`);
+    log('ok', '🎉', `Klaar — ${d.stats.added} toegevoegd, ${d.stats.skipped} al aanwezig, ${d.stats.nobol} niet op Bol, ${d.stats.errors} fouten`);
     reset();
   }
+
+  function stopPolling() {
+    if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+    document.getElementById('stop-btn').style.display = 'none';
+    document.getElementById('server-running-badge').style.display = 'none';
+  }
+
+  async function stopSyncJob() {
+    if (!currentJobId) return;
+    document.getElementById('stop-btn').disabled = true;
+    document.getElementById('stop-btn').textContent = '⏳ Stoppen…';
+    try {
+      await fetch('/api/sync/stop', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ job_id: currentJobId }),
+      });
+      log('warn', '⏹', 'Stop-verzoek verstuurd — wachten tot huidig product klaar is…');
+    } catch(e) {}
+    document.getElementById('stop-btn').disabled = false;
+  }
+
+  // Auto-reconnect: als de pagina laadt en er loopt al een sync op de server
+  window.addEventListener('load', async () => {
+    try {
+      const resp = await fetch('/api/sync/status');
+      if (!resp.ok) return;
+      const d = await resp.json();
+      if (d.status === 'idle') return;
+      if (d.status === 'running' || d.status === 'loading') {
+        currentJobId = d.job_id;
+        running = true;
+        document.getElementById('start-btn').disabled = true;
+        document.getElementById('start-btn').textContent = 'Bezig…';
+        document.getElementById('stop-btn').style.display = 'block';
+        document.getElementById('server-running-badge').style.display = 'block';
+        log('info', '🔄', `Lopende sync gevonden (${d.progress}/${d.total}) — herverbonden`);
+        pollInterval = setInterval(pollSync, 3000);
+        await pollSync();
+      }
+    } catch(e) {}
+  });
 
   // ── Helpers ────────────────────────────────────────────────────────────────
   function badgeLabel(r) {
@@ -1105,6 +1132,7 @@
 
   function reset() {
     running = false;
+    stopPolling();
     const btn = document.getElementById('start-btn');
     btn.disabled = false; btn.textContent = 'Opnieuw starten'; btn.style.display = 'block';
   }
