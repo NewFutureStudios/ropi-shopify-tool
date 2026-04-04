@@ -157,7 +157,12 @@ def _bol_get(url, retries=2):
 
 
 def get_bol_images(ean, bol_token):
-    """Haal Bol.com afbeeldingen op via de officiële Retailer API v10 assets endpoint."""
+    """Haal ALLE Bol.com afbeeldingen op via de Retailer API v10 assets endpoint.
+
+    usage=IMAGE geeft zowel de PRIMARY als alle ADDITIONAL afbeeldingen terug.
+    assets worden gesorteerd op 'order' (carousel-volgorde op de productpagina).
+    Per asset pakken we altijd de hoogste resolutie variant.
+    """
     headers = {
         "Authorization": f"Bearer {bol_token}",
         "Accept": "application/vnd.retailer.v10+json",
@@ -167,6 +172,7 @@ def get_bol_images(ean, bol_token):
         resp = requests.get(
             f"https://api.bol.com/retailer/products/{ean}/assets",
             headers=headers,
+            params={"usage": "IMAGE"},   # ← geeft PRIMARY + alle ADDITIONAL terug
             timeout=15,
         )
         if resp.status_code == 429:
@@ -177,10 +183,15 @@ def get_bol_images(ean, bol_token):
             return []
         resp.raise_for_status()
         data = resp.json()
+
+        # Sorteer op carousel-volgorde zodat de afbeeldingen in de juiste volgorde in Shopify komen
+        assets = sorted(data.get("assets", []), key=lambda a: a.get("order", 999))
+
         images = []
-        for asset in data.get("assets", []):
-            # Sla niet-afbeeldingen over (video, document, etc.)
-            if asset.get("type", "IMAGE") not in ("IMAGE", "image", ""):
+        for asset in assets:
+            # Sla niet-afbeeldingen over (video, document, 360-spin, etc.)
+            usage = asset.get("usage", "IMAGE")
+            if usage not in ("IMAGE", "PRIMARY", "ADDITIONAL", "image", "primary", "additional", ""):
                 continue
             variants = sorted(asset.get("variants", []), key=lambda v: v.get("width", 0), reverse=True)
             if variants:
@@ -190,7 +201,7 @@ def get_bol_images(ean, bol_token):
 
 
 def get_bol_images_raw(ean, bol_token):
-    """Retourneert de volledige raw API response voor debug doeleinden."""
+    """Retourneert de volledige raw API response voor debug doeleinden (met usage=IMAGE)."""
     headers = {
         "Authorization": f"Bearer {bol_token}",
         "Accept": "application/vnd.retailer.v10+json",
@@ -198,6 +209,7 @@ def get_bol_images_raw(ean, bol_token):
     resp = requests.get(
         f"https://api.bol.com/retailer/products/{ean}/assets",
         headers=headers,
+        params={"usage": "IMAGE"},
         timeout=15,
     )
     return resp.status_code, resp.json() if resp.headers.get("content-type", "").startswith("application/") else resp.text
