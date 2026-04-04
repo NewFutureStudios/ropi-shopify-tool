@@ -192,7 +192,7 @@ def get_bol_images(ean, bol_token):
         resp = requests.get(
             f"https://api.bol.com/retailer/products/{ean}/assets",
             headers=headers,
-            params={"usage": "IMAGE"},   # ← geeft PRIMARY + alle ADDITIONAL terug
+            params={"usage": "ADDITIONAL"},  # ← geeft alleen extra foto's terug, niet de PRIMARY
             timeout=15,
         )
         if resp.status_code == 429:
@@ -209,9 +209,9 @@ def get_bol_images(ean, bol_token):
 
         images = []
         for asset in assets:
-            # Sla niet-afbeeldingen over (video, document, 360-spin, etc.)
-            usage = asset.get("usage", "IMAGE")
-            if usage not in ("IMAGE", "PRIMARY", "ADDITIONAL", "image", "primary", "additional", ""):
+            # Sla niet-afbeeldingen over én de PRIMARY (die staat al als hoofdfoto in Shopify)
+            usage = asset.get("usage", "ADDITIONAL")
+            if usage.upper() in ("PRIMARY", "VIDEO", "DOCUMENT", "SPIN_360"):
                 continue
             variants = sorted(asset.get("variants", []), key=lambda v: v.get("width", 0), reverse=True)
             if variants:
@@ -230,7 +230,7 @@ def get_bol_images_raw(ean, bol_token):
     resp = requests.get(
         f"https://api.bol.com/retailer/products/{ean}/assets",
         headers=headers,
-        params={"usage": "IMAGE"},
+        params={"usage": "ADDITIONAL"},
         timeout=15,
     )
     return resp.status_code, resp.json() if resp.headers.get("content-type", "").startswith("application/") else resp.text
